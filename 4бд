@@ -43,3 +43,49 @@ namespace WindowsFormsApp9
                 {
                     MessageBox.Show("Ошибка: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
+            }
+        }
+
+       private void Form1_Load(object sender, EventArgs e)
+        {
+           
+        }
+
+        private void dataGridView1_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+
+        }
+
+        private void бДToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void бронированиеToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            LoadData("booking");
+             
+        }
+
+        private void спортивныеМероприятияToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            LoadData("event");
+
+        }
+
+        private void инструкторToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            LoadData("instructor");
+        }
+
+        private void тренировкаToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            LoadData("training");
+        }
+
+        private void пользовательToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            LoadData("user");
+        }
+    }
+}
