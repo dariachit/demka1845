@@ -1,0 +1,256 @@
+# Интерфейс системы для агентства недвижимости (WinForms)
+
+## Главная форма авторизации (LoginForm)
+```csharp
+public class LoginForm : Form
+{
+    private TextBox txtLogin;
+    private TextBox txtPassword;
+    private Button btnLogin;
+    private Label lblError;
+    
+    public LoginForm()
+    {
+        // Инициализация компонентов
+        this.Text = "Авторизация в системе";
+        // ... настройка размеров и расположения элементов
+    }
+    
+    private void btnLogin_Click(object sender, EventArgs e)
+    {
+        // Проверка логина и пароля
+        // В зависимости от роли пользователя открываем соответствующую форму
+    }
+}
+```
+
+## Форма администратора (AdminMainForm)
+```csharp
+public class AdminMainForm : Form
+{
+    private TabControl tabControl;
+    private TabPage tabUsers;
+    private TabPage tabProperties;
+    private TabPage tabOwners;
+    private TabPage tabDeals;
+    private TabPage tabReports;
+    
+    // Элементы для вкладки пользователей
+    private DataGridView dgvUsers;
+    private Button btnAddUser;
+    private Button btnDeleteUser;
+    
+    // Элементы для вкладки недвижимости
+    private DataGridView dgvProperties;
+    private Button btnAddProperty;
+    private Button btnEditProperty;
+    private Button btnDeleteProperty;
+    
+    // Элементы для вкладки собственников
+    private DataGridView dgvOwners;
+    private Button btnAddOwner;
+    
+    // Элементы для вкладки сделок
+    private DataGridView dgvDeals;
+    private ComboBox cmbRealtorsFilter;
+    private DateTimePicker dtpFrom;
+    private DateTimePicker dtpTo;
+    private Button btnFilterDeals;
+    
+    // Элементы для вкладки отчетов
+    private ComboBox cmbRealtorsReport;
+    private Button btnGenerateReport;
+    private DataGridView dgvReportResults;
+    
+    public AdminMainForm()
+    {
+        this.Text = "Панель администратора";
+        this.WindowState = FormWindowState.Maximized;
+        
+        InitializeComponents();
+    }
+    
+    private void InitializeComponents()
+    {
+        // Инициализация и настройка всех элементов управления
+        // ...
+    }
+    
+    private void btnAddUser_Click(object sender, EventArgs e)
+    {
+        var addUserForm = new AddUserForm();
+        if (addUserForm.ShowDialog() == DialogResult.OK)
+        {
+            // Добавление нового пользователя
+        }
+    }
+    
+    // Другие методы обработки событий...
+}
+```
+
+## Форма риелтора (RealtorMainForm)
+```csharp
+public class RealtorMainForm : Form
+{
+    private TabControl tabControl;
+    private TabPage tabRequests;
+    private TabPage tabOwners;
+    private TabPage tabProperties;
+    private TabPage tabDeals;
+    
+    // Элементы для вкладки заявок
+    private DataGridView dgvRequests;
+    private Button btnAddRequest;
+    private Button btnProcessRequest;
+    
+    // Элементы для вкладки собственников
+    private DataGridView dgvOwners;
+    private Button btnAddOwner;
+    
+    // Элементы для вкладки недвижимости
+    private DataGridView dgvProperties;
+    private Button btnAddProperty;
+    private Button btnDeleteProperty;
+    
+    // Элементы для вкладки сделок
+    private DataGridView dgvDeals;
+    private Button btnMakeDeal;
+    private Button btnGenerateContract;
+    
+    public RealtorMainForm()
+    {
+        this.Text = "Панель риелтора";
+        this.WindowState = FormWindowState.Maximized;
+        
+        InitializeComponents();
+    }
+    
+    private void InitializeComponents()
+    {
+        // Инициализация и настройка всех элементов управления
+        // ...
+    }
+    
+    private void btnAddRequest_Click(object sender, EventArgs e)
+    {
+        var requestForm = new AddRequestForm();
+        if (requestForm.ShowDialog() == DialogResult.OK)
+        {
+            // Добавление новой заявки
+        }
+    }
+    
+    // Другие методы обработки событий...
+}
+```
+
+## Вспомогательные формы
+
+### Форма добавления пользователя (AddUserForm)
+```csharp
+public class AddUserForm : Form
+{
+    private TextBox txtFirstName;
+    private TextBox txtLastName;
+    private TextBox txtLogin;
+    private TextBox txtPassword;
+    private ComboBox cmbRole;
+    private Button btnSave;
+    private Button btnCancel;
+    
+    public AddUserForm()
+    {
+        this.Text = "Добавление нового пользователя";
+        this.FormBorderStyle = FormBorderStyle.FixedDialog;
+        this.StartPosition = FormStartPosition.CenterParent;
+        
+        // Инициализация компонентов...
+    }
+}
+```
+
+### Форма добавления заявки (AddRequestForm)
+```csharp
+public class AddRequestForm : Form
+{
+    private ComboBox cmbRequestType;
+    private TextBox txtClientName;
+    private TextBox txtClientPhone;
+    private TextBox txtClientPassport;
+    private ComboBox cmbDistrict;
+    private NumericUpDown nudRooms;
+    private NumericUpDown nudFloor;
+    private Button btnSave;
+    private Button btnCancel;
+    
+    public AddRequestForm()
+    {
+        this.Text = "Добавление новой заявки";
+        // Инициализация компонентов...
+    }
+}
+```
+
+### Форма добавления собственника (AddOwnerForm)
+```csharp
+public class AddOwnerForm : Form
+{
+    private TextBox txtFullName;
+    private TextBox txtPassport;
+    private TextBox txtPhone;
+    private Button btnSave;
+    private Button btnCancel;
+    
+    public AddOwnerForm()
+    {
+        this.Text = "Добавление собственника";
+        // Инициализация компонентов...
+    }
+}
+```
+
+### Форма добавления объекта недвижимости (AddPropertyForm)
+```csharp
+public class AddPropertyForm : Form
+{
+    private ComboBox cmbPropertyType;
+    private ComboBox cmbOwner;
+    private TextBox txtAddress;
+    private ComboBox cmbDistrict;
+    private NumericUpDown nudArea;
+    private NumericUpDown nudRooms;
+    private NumericUpDown nudFloor;
+    private NumericUpDown nudTotalFloors;
+    private NumericUpDown nudPrice;
+    private Button btnSave;
+    private Button btnCancel;
+    
+    public AddPropertyForm()
+    {
+        this.Text = "Добавление объекта недвижимости";
+        // Инициализация компонентов...
+    }
+}
+```
+
+### Форма заключения сделки (MakeDealForm)
+```csharp
+public class MakeDealForm : Form
+{
+    private ComboBox cmbProperty;
+    private ComboBox cmbClient;
+    private DateTimePicker dtpDealDate;
+    private NumericUpDown nudPrice;
+    private Button btnGenerateContract;
+    private Button btnSave;
+    private Button btnCancel;
+    
+    public MakeDealForm()
+    {
+        this.Text = "Заключение сделки";
+        // Инициализация компонентов...
+    }
+}
+```
+
