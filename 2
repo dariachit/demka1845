@@ -1,0 +1,63 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespaceWindowsFormsApp5
+{
+publicpartialclassAdminForm : Form
+{
+private (string Login, string Password, bool IsBlocked)[] users = new (string, string, bool)[]
+{
+            ("admin", "admin111", false),
+            ("Daria", "1234", false)
+        };
+
+publicAdminForm()
+        {
+            InitializeComponent();
+        }
+
+privatevoidbtnAddUser_Click(object sender, EventArgs e)
+{
+string login = txtNewLogin.Text;
+string password = txtNewPassword.Text;
+
+if (string.IsNullOrWhiteSpace(login) || string.IsNullOrWhiteSpace(password))
+{
+                MessageBox.Show("Поля 'Логин' и 'Пароль' должны быть заполнены.", MessageBoxButtons.OK, MessageBoxIcon.Error);
+return;
+            }
+
+if (users.Any(u => u.Login == login))
+{
+                MessageBox.Show("Пользователь с таким логином уже существует.", MessageBoxButtons.OK, MessageBoxIcon.Error);
+return;
+            }
+
+            Array.Resize(ref users, users.Length + 1);
+            users[users.Length - 1] = (login, password, false);
+            MessageBox.Show("Пользовательуспешнодобавлен.", MessageBoxButtons.OK, MessageBoxIcon.Information);
+}
+
+privatevoidbtnUnlockUser_Click(object sender, EventArgs e)
+{
+string login = txtUnlockLogin.Text;
+
+var user = users.FirstOrDefault(u => u.Login == login);
+if (user.Login == null)
+            {
+                MessageBox.Show("Пользователь не найден.", MessageBoxButtons.OK, MessageBoxIcon.Error);
+return;
+            }
+
+            user.IsBlocked = false;
+            MessageBox.Show("Пользователь разблокирован.", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+    }
+}
