@@ -1,0 +1,80 @@
+1. employees (Сотрудники)
+employee_id – уникальный ID сотрудника.
+
+full_name – ФИО.
+
+role – роль (admin, waiter, chef).
+
+login и password_hash – для авторизации.
+
+is_active – работает / уволен (FALSE).
+
+2. shifts (Смены)
+shift_id – уникальный ID смены.
+
+shift_date, start_time, end_time – дата и время смены.
+
+3. shift_assignments (Назначения на смены)
+Связывает employees и shifts.
+
+4. tables (Столики)
+table_number – номер столика.
+
+capacity – вместимость.
+
+is_available – свободен / занят.
+
+5. menu_items (Меню)
+name – название блюда/напитка.
+
+category – еда или напиток.
+
+price – стоимость.
+
+is_available – доступно ли сейчас.
+
+6. orders (Заказы)
+table_id – к какому столику относится.
+
+employee_id – кто официант.
+
+status – статус заказа (received, preparing, ready, paid).
+
+closed_at – когда закрыт (оплачен).
+
+7. order_items (Состав заказа)
+Связывает orders и menu_items (какие блюда в заказе).
+
+
+
+3. ОСНОВНЫЕ SQL-запросы для работы системы
+Для администратора
+sql
+-- Добавление нового сотрудника
+INSERT INTO employees (full_name, role, login, password_hash) 
+VALUES ('Иванов Иван', 'admin', 'ivanov', 'hash123');
+
+-- Увольнение сотрудника
+UPDATE employees SET is_active = FALSE WHERE employee_id = 1;
+
+-- Назначение на смену
+INSERT INTO shift_assignments (shift_id, employee_id) VALUES (1, 2);
+
+-- Просмотр всех заказов
+SELECT * FROM orders;
+Для официанта
+sql
+-- Создание заказа
+INSERT INTO orders (table_id, employee_id, client_count) VALUES (3, 5, 2);
+INSERT INTO order_items (order_id, item_id) VALUES (LAST_INSERT_ID(), 10);  -- Добавление блюда
+
+-- Изменение статуса заказа (оплачен)
+UPDATE orders SET status = 'paid', closed_at = NOW() WHERE order_id = 5;
+Для повара
+sql
+-- Просмотр активных заказов
+SELECT * FROM orders WHERE status IN ('received', 'preparing');
+
+-- Изменение статуса (готовится → готов)
+UPDATE orders SET status = 'ready' WHERE order_id = 5;
+
