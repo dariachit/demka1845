@@ -1,0 +1,305 @@
+# База данных для агентства недвижимости
+
+## Описание структуры базы данных
+
+База данных для агентства недвижимости состоит из 8 взаимосвязанных таблиц, которые охватывают все аспекты работы агентства: учет сотрудников, клиентов, объектов недвижимости и сделок.
+
+### Основные сущности:
+1. **Сотрудники** (администраторы и риелторы)
+2. **Клиенты** (покупатели/арендаторы)
+3. **Собственники** недвижимости
+4. **Объекты** недвижимости
+5. **Заявки** клиентов
+6. **Сделки** по объектам недвижимости
+7. **Типы** недвижимости
+8. **Районы** города
+
+## Схема базы данных с описанием таблиц и связей
+
+```sql
+CREATE DATABASE real_estate_agency;
+USE real_estate_agency;
+
+-- 1. Таблица сотрудников
+CREATE TABLE employees (
+    employee_id INT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    role ENUM('admin', 'realtor') NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    login VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    hire_date DATE NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    commission_rate DECIMAL(5,2) DEFAULT 0.0 COMMENT 'Процент комиссии'
+) COMMENT 'Сотрудники агентства';
+
+-- 2. Таблица клиентов (покупатели/арендаторы)
+CREATE TABLE clients (
+    client_id INT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    passport_number VARCHAR(50) UNIQUE NOT NULL,
+    passport_issued_by VARCHAR(200),
+    passport_issue_date DATE,
+    phone VARCHAR(20) NOT NULL,
+    email VARCHAR(100),
+    address TEXT,
+    registration_date DATE DEFAULT (CURRENT_DATE)
+) COMMENT 'Клиенты агентства (покупатели/арендаторы)';
+
+-- 3. Таблица собственников
+CREATE TABLE owners (
+    owner_id INT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    passport_number VARCHAR(50) UNIQUE NOT NULL,
+    passport_issued_by VARCHAR(200),
+    passport_issue_date DATE,
+    phone VARCHAR(20) NOT NULL,
+    email VARCHAR(100),
+    address TEXT,
+    registration_date DATE DEFAULT (CURRENT_DATE)
+) COMMENT 'Собственники недвижимости';
+
+-- 4. Таблица типов недвижимости
+CREATE TABLE property_types (
+    type_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    description TEXT
+) COMMENT 'Типы недвижимости';
+
+-- 5. Таблица районов города
+CREATE TABLE districts (
+    district_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    description TEXT
+) COMMENT 'Районы города';
+
+-- 6. Таблица объектов недвижимости
+CREATE TABLE properties (
+    property_id INT AUTO_INCREMENT PRIMARY KEY,
+    owner_id INT NOT NULL,
+    type_id INT NOT NULL,
+    district_id INT NOT NULL,
+    address TEXT NOT NULL,
+    area DECIMAL(10,2) NOT NULL COMMENT 'Площадь в кв.м',
+    rooms INT,
+    floor INT,
+    total_floors INT,
+    price DECIMAL(12,2) NOT NULL,
+    is_for_sale BOOLEAN DEFAULT TRUE COMMENT 'TRUE - продажа, FALSE - аренда',
+    rent_price DECIMAL(12,2) COMMENT 'Цена аренды в месяц',
+    description TEXT,
+    registration_date DATE DEFAULT (CURRENT_DATE),
+    is_sold BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (owner_id) REFERENCES owners(owner_id),
+    FOREIGN KEY (type_id) REFERENCES property_types(type_id),
+    FOREIGN KEY (district_id) REFERENCES districts(district_id)
+) COMMENT 'Объекты недвижимости';
+
+-- 7. Таблица заявок клиентов
+CREATE TABLE requests (
+    request_id INT AUTO_INCREMENT PRIMARY KEY,
+    client_id INT NOT NULL,
+    employee_id INT NOT NULL,
+    property_type_id INT,
+    district_id INT,
+    min_area DECIMAL(10,2),
+    max_area DECIMAL(10,2),
+    min_rooms INT,
+    max_rooms INT,
+    min_price DECIMAL(12,2),
+    max_price DECIMAL(12,2),
+    is_for_sale BOOLEAN DEFAULT TRUE,
+    max_rent_price DECIMAL(12,2),
+    request_date DATE DEFAULT (CURRENT_DATE),
+    status ENUM('active', 'fulfilled', 'canceled') DEFAULT 'active',
+    notes TEXT,
+    FOREIGN KEY (client_id) REFERENCES clients(client_id),
+    FOREIGN KEY (employee_id) REFERENCES employees(employee_id),
+    FOREIGN KEY (property_type_id) REFERENCES property_types(type_id),
+    FOREIGN KEY (district_id) REFERENCES districts(district_id)
+) COMMENT 'Заявки клиентов на поиск недвижимости';
+
+-- 8. Таблица сделок
+CREATE TABLE deals (
+    deal_id INT AUTO_INCREMENT PRIMARY KEY,
+    property_id INT NOT NULL,
+    client_id INT NOT NULL,
+    employee_id INT NOT NULL,
+    deal_date DATE DEFAULT (CURRENT_DATE),
+    deal_type ENUM('sale', 'rent') NOT NULL,
+    amount DECIMAL(12,2) NOT NULL,
+    commission DECIMAL(12,2) NOT NULL,
+    contract_number VARCHAR(50) UNIQUE,
+    contract_file_path VARCHAR(255),
+    notes TEXT,
+    FOREIGN KEY (property_id) REFERENCES properties(property_id),
+    FOREIGN KEY (client_id) REFERENCES clients(client_id),
+    FOREIGN KEY (employee_id) REFERENCES employees(employee_id)
+) COMMENT 'Сделки по недвижимости';
+```
+
+## Основные связи между таблицами
+
+1. **Сотрудники (employees)**:
+   - Связаны с заявками (requests) как принимающие риелторы
+   - Связаны со сделками (deals) как ответственные риелторы
+
+2. **Клиенты (clients)**:
+   - Связаны с заявками (requests)
+   - Связаны со сделками (deals) как покупатели/арендаторы
+
+3. **Собственники (owners)**:
+   - Связаны с объектами недвижимости (properties)
+
+4. **Объекты недвижимости (properties)**:
+   - Связаны с типами недвижимости (property_types)
+   - Связаны с районами (districts)
+   - Связаны со сделками (deals)
+
+5. **Заявки (requests)**:
+   - Связаны с клиентами (clients)
+   - Связаны с сотрудниками (employees)
+   - Могут быть связаны с типами недвижимости и районами
+
+## Примеры SQL-запросов
+
+### 1. Регистрация нового сотрудника (администратор)
+```sql
+INSERT INTO employees (full_name, role, phone, email, login, password_hash, hire_date, commission_rate)
+VALUES ('Иванов Петр Сидорович', 'realtor', '+79161234567', 'ivanov@agency.ru', 'ivanov', SHA2('password123', 256), '2023-01-15', 2.5);
+```
+
+### 2. Добавление нового объекта недвижимости (риелтор)
+```sql
+INSERT INTO properties (owner_id, type_id, district_id, address, area, rooms, floor, total_floors, price, is_for_sale, description)
+VALUES (5, 3, 2, 'ул. Центральная, д. 15, кв. 42', 65.5, 2, 5, 9, 7500000.00, TRUE, 'Квартира с ремонтом, евроокна, балкон');
+```
+
+### 3. Добавление заявки клиента (риелтор)
+```sql
+INSERT INTO requests (client_id, employee_id, property_type_id, district_id, min_rooms, max_rooms, min_price, max_price, is_for_sale, notes)
+VALUES (8, 3, 3, 2, 2, 3, 5000000.00, 8000000.00, TRUE, 'Ищет квартиру в центре, желательно с ремонтом');
+```
+
+### 4. Заключение сделки (риелтор)
+```sql
+INSERT INTO deals (property_id, client_id, employee_id, deal_type, amount, commission, contract_number)
+VALUES (15, 8, 3, 'sale', 7200000.00, 180000.00, 'Д-2023-0156');
+
+UPDATE properties SET is_sold = TRUE WHERE property_id = 15;
+```
+
+### 5. Просмотр всех объектов недвижимости (администратор/риелтор)
+```sql
+SELECT 
+    p.property_id,
+    pt.name AS property_type,
+    d.name AS district,
+    p.address,
+    p.area,
+    p.rooms,
+    p.floor,
+    p.total_floors,
+    IF(p.is_for_sale, p.price, p.rent_price) AS price,
+    IF(p.is_for_sale, 'Продажа', 'Аренда') AS deal_type,
+    o.full_name AS owner,
+    p.is_sold
+FROM properties p
+JOIN property_types pt ON p.type_id = pt.type_id
+JOIN districts d ON p.district_id = d.district_id
+JOIN owners o ON p.owner_id = o.owner_id
+ORDER BY p.registration_date DESC;
+```
+
+### 6. Просмотр прибыли риелторов (администратор)
+```sql
+SELECT 
+    e.full_name AS realtor,
+    COUNT(d.deal_id) AS deals_count,
+    SUM(d.amount) AS total_amount,
+    SUM(d.commission) AS total_commission
+FROM deals d
+JOIN employees e ON d.employee_id = e.employee_id
+WHERE d.deal_date BETWEEN '2023-01-01' AND '2023-12-31'
+GROUP BY e.employee_id
+ORDER BY total_commission DESC;
+```
+
+### 7. Поиск объектов по параметрам заявки (риелтор)
+```sql
+SELECT 
+    p.property_id,
+    pt.name AS property_type,
+    d.name AS district,
+    p.address,
+    p.area,
+    p.rooms,
+    p.floor,
+    p.price
+FROM properties p
+JOIN property_types pt ON p.type_id = pt.type_id
+JOIN districts d ON p.district_id = d.district_id
+WHERE p.is_sold = FALSE
+AND p.is_for_sale = TRUE
+AND p.type_id = 3
+AND p.district_id = 2
+AND p.rooms BETWEEN 2 AND 3
+AND p.price BETWEEN 5000000.00 AND 8000000.00
+ORDER BY p.price;
+```
+
+### 8. Генерация отчета по сделкам за период (администратор)
+```sql
+SELECT 
+    d.deal_id,
+    d.deal_date,
+    d.contract_number,
+    CASE d.deal_type 
+        WHEN 'sale' THEN 'Продажа' 
+        WHEN 'rent' THEN 'Аренда' 
+    END AS deal_type,
+    p.address,
+    d.amount,
+    d.commission,
+    e.full_name AS realtor,
+    c.full_name AS client,
+    o.full_name AS owner
+FROM deals d
+JOIN properties p ON d.property_id = p.property_id
+JOIN employees e ON d.employee_id = e.employee_id
+JOIN clients c ON d.client_id = c.client_id
+JOIN owners o ON p.owner_id = o.owner_id
+WHERE d.deal_date BETWEEN '2023-01-01' AND '2023-12-31'
+ORDER BY d.deal_date DESC;
+```
+
+### 9. Удаление объекта недвижимости (риелтор)
+```sql
+DELETE FROM properties 
+WHERE property_id = 15 
+AND is_sold = FALSE;
+```
+
+### 10. Просмотр активных заявок клиентов (риелтор)
+```sql
+SELECT 
+    r.request_id,
+    r.request_date,
+    c.full_name AS client,
+    c.phone AS client_phone,
+    pt.name AS property_type,
+    d.name AS district,
+    r.min_rooms,
+    r.max_rooms,
+    r.min_price,
+    r.max_price,
+    IF(r.is_for_sale, 'Продажа', 'Аренда') AS deal_type
+FROM requests r
+JOIN clients c ON r.client_id = c.client_id
+LEFT JOIN property_types pt ON r.property_type_id = pt.type_id
+LEFT JOIN districts d ON r.district_id = d.district_id
+WHERE r.status = 'active'
+ORDER BY r.request_date DESC;
+```
+
