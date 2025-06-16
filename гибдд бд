@@ -1,0 +1,301 @@
+# База данных для информационной системы ГИБДД
+
+## Описание структуры базы данных
+
+### Таблицы и их связи
+
+1. **Пользователи (Users)**
+```sql
+CREATE TABLE Users (
+    UserID INT PRIMARY KEY IDENTITY(1,1),
+    Login NVARCHAR(50) NOT NULL UNIQUE,
+    Password NVARCHAR(100) NOT NULL,
+    FullName NVARCHAR(100) NOT NULL,
+    RoleID INT NOT NULL,
+    IsActive BIT DEFAULT 1,
+    FOREIGN KEY (RoleID) REFERENCES Roles(RoleID)
+);
+```
+
+2. **Роли (Roles)**
+```sql
+CREATE TABLE Roles (
+    RoleID INT PRIMARY KEY IDENTITY(1,1),
+    RoleName NVARCHAR(50) NOT NULL UNIQUE,
+    Description NVARCHAR(255)
+);
+```
+
+3. **Транспортные средства (Vehicles)**
+```sql
+CREATE TABLE Vehicles (
+    VehicleID INT PRIMARY KEY IDENTITY(1,1),
+    VIN NVARCHAR(17) NOT NULL UNIQUE,
+    BodyNumber NVARCHAR(50),
+    ChassisNumber NVARCHAR(50),
+    VehicleTypeID INT NOT NULL,
+    RegistrationNumber NVARCHAR(15) NOT NULL UNIQUE,
+    Make NVARCHAR(50) NOT NULL,
+    Model NVARCHAR(50) NOT NULL,
+    Weight DECIMAL(10,2),
+    MaxWeight DECIMAL(10,2),
+    OwnerID INT NOT NULL,
+    RegistrationDate DATE NOT NULL,
+    IsStolen BIT DEFAULT 0,
+    FOREIGN KEY (VehicleTypeID) REFERENCES VehicleTypes(VehicleTypeID),
+    FOREIGN KEY (OwnerID) REFERENCES Owners(OwnerID)
+);
+```
+
+4. **Типы транспортных средств (VehicleTypes)**
+```sql
+CREATE TABLE VehicleTypes (
+    VehicleTypeID INT PRIMARY KEY IDENTITY(1,1),
+    TypeName NVARCHAR(50) NOT NULL UNIQUE,
+    Description NVARCHAR(255)
+);
+```
+
+5. **Собственники (Owners)**
+```sql
+CREATE TABLE Owners (
+    OwnerID INT PRIMARY KEY IDENTITY(1,1),
+    FullName NVARCHAR(100) NOT NULL,
+    PassportNumber NVARCHAR(20) NOT NULL UNIQUE,
+    PassportIssuedBy NVARCHAR(255),
+    PassportIssueDate DATE,
+    Address NVARCHAR(255),
+    Phone NVARCHAR(20),
+    Email NVARCHAR(100)
+);
+```
+
+6. **Угоны (Thefts)**
+```sql
+CREATE TABLE Thefts (
+    TheftID INT PRIMARY KEY IDENTITY(1,1),
+    VehicleID INT NOT NULL,
+    TheftDate DATETIME NOT NULL,
+    ReportDate DATETIME NOT NULL DEFAULT GETDATE(),
+    ReportOfficerID INT NOT NULL,
+    Description NVARCHAR(MAX),
+    IsSolved BIT DEFAULT 0,
+    SolutionDate DATETIME,
+    FOREIGN KEY (VehicleID) REFERENCES Vehicles(VehicleID),
+    FOREIGN KEY (ReportOfficerID) REFERENCES Users(UserID)
+);
+```
+
+7. **ДТП (Accidents)**
+```sql
+CREATE TABLE Accidents (
+    AccidentID INT PRIMARY KEY IDENTITY(1,1),
+    AccidentDate DATETIME NOT NULL,
+    Location NVARCHAR(255) NOT NULL,
+    Description NVARCHAR(MAX),
+    ParticipantsCount INT NOT NULL,
+    ReportOfficerID INT NOT NULL,
+    FOREIGN KEY (ReportOfficerID) REFERENCES Users(UserID)
+);
+```
+
+8. **Участники ДТП (AccidentParticipants)**
+```sql
+CREATE TABLE AccidentParticipants (
+    ParticipantID INT PRIMARY KEY IDENTITY(1,1),
+    AccidentID INT NOT NULL,
+    VehicleID INT,
+    PersonFullName NVARCHAR(100),
+    PersonPassport NVARCHAR(20),
+    IsViolator BIT DEFAULT 0,
+    DamageDescription NVARCHAR(MAX),
+    FOREIGN KEY (AccidentID) REFERENCES Accidents(AccidentID),
+    FOREIGN KEY (VehicleID) REFERENCES Vehicles(VehicleID)
+);
+```
+
+9. **Штрафы (Fines)**
+```sql
+CREATE TABLE Fines (
+    FineID INT PRIMARY KEY IDENTITY(1,1),
+    ViolationTypeID INT NOT NULL,
+    VehicleID INT,
+    PersonFullName NVARCHAR(100),
+    PersonPassport NVARCHAR(20),
+    Amount DECIMAL(10,2) NOT NULL,
+    IssueDate DATETIME NOT NULL DEFAULT GETDATE(),
+    DueDate DATETIME NOT NULL,
+    IssuingOfficerID INT NOT NULL,
+    IsPaid BIT DEFAULT 0,
+    PaymentDate DATETIME,
+    AccidentID INT,
+    FOREIGN KEY (ViolationTypeID) REFERENCES ViolationTypes(ViolationTypeID),
+    FOREIGN KEY (VehicleID) REFERENCES Vehicles(VehicleID),
+    FOREIGN KEY (IssuingOfficerID) REFERENCES Users(UserID),
+    FOREIGN KEY (AccidentID) REFERENCES Accidents(AccidentID)
+);
+```
+
+10. **Типы нарушений (ViolationTypes)**
+```sql
+CREATE TABLE ViolationTypes (
+    ViolationTypeID INT PRIMARY KEY IDENTITY(1,1),
+    ViolationName NVARCHAR(100) NOT NULL UNIQUE,
+    Description NVARCHAR(255),
+    BaseFineAmount DECIMAL(10,2) NOT NULL
+);
+```
+
+## Основные запросы к базе данных
+
+1. **Авторизация пользователя**
+```sql
+SELECT UserID, FullName, RoleID 
+FROM Users 
+WHERE Login = @login AND Password = @password AND IsActive = 1;
+```
+
+2. **Добавление нового транспортного средства**
+```sql
+INSERT INTO Vehicles (VIN, BodyNumber, ChassisNumber, VehicleTypeID, RegistrationNumber, 
+                     Make, Model, Weight, MaxWeight, OwnerID, RegistrationDate)
+VALUES (@vin, @bodyNumber, @chassisNumber, @vehicleTypeID, @registrationNumber, 
+        @make, @model, @weight, @maxWeight, @ownerID, @registrationDate);
+```
+
+3. **Поиск ТС по VIN или гос. номеру**
+```sql
+SELECT v.*, vt.TypeName, o.FullName AS OwnerName
+FROM Vehicles v
+JOIN VehicleTypes vt ON v.VehicleTypeID = vt.VehicleTypeID
+JOIN Owners o ON v.OwnerID = o.OwnerID
+WHERE v.VIN LIKE '%' + @searchTerm + '%' OR v.RegistrationNumber LIKE '%' + @searchTerm + '%';
+```
+
+4. **Добавление записи об угоне**
+```sql
+INSERT INTO Thefts (VehicleID, TheftDate, ReportOfficerID, Description)
+VALUES (@vehicleID, @theftDate, @officerID, @description);
+
+UPDATE Vehicles SET IsStolen = 1 WHERE VehicleID = @vehicleID;
+```
+
+5. **Добавление ДТП**
+```sql
+INSERT INTO Accidents (AccidentDate, Location, Description, ParticipantsCount, ReportOfficerID)
+VALUES (@accidentDate, @location, @description, @participantsCount, @officerID);
+```
+
+6. **Добавление участника ДТП**
+```sql
+INSERT INTO AccidentParticipants (AccidentID, VehicleID, PersonFullName, PersonPassport, 
+                                 IsViolator, DamageDescription)
+VALUES (@accidentID, @vehicleID, @personFullName, @personPassport, 
+        @isViolator, @damageDescription);
+```
+
+7. **Выписка штрафа**
+```sql
+INSERT INTO Fines (ViolationTypeID, VehicleID, PersonFullName, PersonPassport, 
+                   Amount, DueDate, IssuingOfficerID, AccidentID)
+VALUES (@violationTypeID, @vehicleID, @personFullName, @personPassport, 
+        @amount, @dueDate, @officerID, @accidentID);
+```
+
+8. **Отчет по зарегистрированным ТС за период**
+```sql
+SELECT COUNT(*) AS RegisteredCount, vt.TypeName
+FROM Vehicles v
+JOIN VehicleTypes vt ON v.VehicleTypeID = vt.VehicleTypeID
+WHERE v.RegistrationDate BETWEEN @startDate AND @endDate
+GROUP BY vt.TypeName;
+```
+
+9. **Отчет по угонам за период**
+```sql
+SELECT COUNT(*) AS TheftCount, 
+       SUM(CASE WHEN t.IsSolved = 1 THEN 1 ELSE 0 END) AS SolvedCount
+FROM Thefts t
+WHERE t.TheftDate BETWEEN @startDate AND @endDate;
+```
+
+10. **Отчет по ДТП за период**
+```sql
+SELECT COUNT(*) AS AccidentCount, 
+       SUM(a.ParticipantsCount) AS ParticipantsTotal,
+       SUM(CASE WHEN ap.IsViolator = 1 THEN 1 ELSE 0 END) AS ViolatorsCount
+FROM Accidents a
+LEFT JOIN AccidentParticipants ap ON a.AccidentID = ap.AccidentID
+WHERE a.AccidentDate BETWEEN @startDate AND @endDate;
+```
+
+11. **Получение списка угнанных ТС**
+```sql
+SELECT v.*, t.TheftDate, t.Description AS TheftDescription, 
+       u.FullName AS ReportOfficerName, o.FullName AS OwnerName
+FROM Vehicles v
+JOIN Thefts t ON v.VehicleID = t.VehicleID
+JOIN Users u ON t.ReportOfficerID = u.UserID
+JOIN Owners o ON v.OwnerID = o.OwnerID
+WHERE v.IsStolen = 1 AND t.IsSolved = 0;
+```
+
+12. **Обновление статуса угона при нахождении ТС**
+```sql
+UPDATE Thefts 
+SET IsSolved = 1, SolutionDate = GETDATE() 
+WHERE VehicleID = @vehicleID AND IsSolved = 0;
+
+UPDATE Vehicles SET IsStolen = 0 WHERE VehicleID = @vehicleID;
+```
+
+Основные связи:
+Пользователи и Роли:
+
+Каждый пользователь (Users) относится к одной роли (Roles) через поле RoleID. Это связь "один-ко-многим" (одна роль может быть у многих пользователей).
+
+Транспортные средства:
+
+Каждое ТС (Vehicles) имеет:
+
+Тип (VehicleTypes) через VehicleTypeID (один тип у многих ТС)
+
+Собственника (Owners) через OwnerID (один собственник может владеть многими ТС)
+
+Поле IsStolen связано с таблицей угона (Thefts)
+
+Угоны:
+
+Каждая запись об угоне (Thefts) связана:
+
+С ТС (Vehicles) через VehicleID (одно ТС может быть в угоне только один раз в активном статусе)
+
+С инспектором (Users), оформившим заявление, через ReportOfficerID
+
+ДТП:
+
+Каждое ДТП (Accidents) имеет:
+
+Инспектора-оформителя (Users) через ReportOfficerID
+
+Нескольких участников (AccidentParticipants) через AccidentID
+
+Участники ДТП:
+
+Каждый участник (AccidentParticipants) может быть:
+
+Привязан к ТС (Vehicles) через VehicleID (необязательно)
+
+Связан с конкретным ДТП через AccidentID
+
+Штрафы:
+
+Каждый штраф (Fines) имеет:
+
+Тип нарушения (ViolationTypes) через ViolationTypeID
+
+Может быть привязан к ТС (Vehicles) через VehicleID
+
+Инспектора, выписавшего штраф (Users) через IssuingOfficerID
+
+Может быть связан с ДТП (Accidents) через AccidentID (необязательно)
