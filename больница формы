@@ -1,0 +1,458 @@
+# Интерфейс системы поликлиники (WinForms)
+
+## Главная форма авторизации (LoginForm)
+
+```csharp
+public class LoginForm : Form
+{
+    private TextBox txtLogin;
+    private TextBox txtPassword;
+    private Button btnLogin;
+    private Label lblError;
+    
+    public LoginForm()
+    {
+        this.Text = "Авторизация в системе поликлиники";
+        this.Size = new Size(350, 250);
+        this.FormBorderStyle = FormBorderStyle.FixedDialog;
+        
+        txtLogin = new TextBox() { Location = new Point(120, 50), Width = 150 };
+        txtPassword = new TextBox() { Location = new Point(120, 90), Width = 150, PasswordChar = '*' };
+        btnLogin = new Button() { Text = "Войти", Location = new Point(120, 130), Width = 150 };
+        lblError = new Label() { Location = new Point(20, 170), Width = 300, ForeColor = Color.Red };
+        
+        this.Controls.AddRange(new Control[] {
+            new Label() { Text = "Логин:", Location = new Point(20, 50) },
+            txtLogin,
+            new Label() { Text = "Пароль:", Location = new Point(20, 90) },
+            txtPassword,
+            btnLogin,
+            lblError
+        });
+        
+        btnLogin.Click += BtnLogin_Click;
+    }
+    
+    private void BtnLogin_Click(object sender, EventArgs e)
+    {
+        if (AuthenticateUser(txtLogin.Text, txtPassword.Text))
+        {
+            var role = GetUserRole(txtLogin.Text);
+            Form mainForm = role switch
+            {
+                "Admin" => new AdminMainForm(),
+                "Doctor" => new DoctorMainForm(),
+                "Nurse" => new NurseMainForm(),
+                _ => throw new Exception("Неизвестная роль пользователя")
+            };
+            mainForm.Show();
+            this.Hide();
+        }
+        else
+        {
+            lblError.Text = "Неверный логин или пароль";
+        }
+    }
+}
+```
+
+## Форма администратора (AdminMainForm)
+
+```csharp
+public class AdminMainForm : Form
+{
+    private TabControl tabControl;
+    
+    public AdminMainForm()
+    {
+        this.Text = "Панель администратора поликлиники";
+        this.WindowState = FormWindowState.Maximized;
+        
+        tabControl = new TabControl() { Dock = DockStyle.Fill };
+        
+        // Вкладка сотрудников
+        var tabEmployees = new TabPage("Сотрудники");
+        InitializeEmployeesTab(tabEmployees);
+        
+        // Вкладка пациентов
+        var tabPatients = new TabPage("Пациенты");
+        InitializePatientsTab(tabPatients);
+        
+        // Вкладка смен
+        var tabShifts = new TabPage("Смены");
+        InitializeShiftsTab(tabShifts);
+        
+        // Вкладка талонов
+        var tabAppointments = new TabPage("Талончики");
+        InitializeAppointmentsTab(tabAppointments);
+        
+        tabControl.TabPages.AddRange(new[] { tabEmployees, tabPatients, tabShifts, tabAppointments });
+        this.Controls.Add(tabControl);
+    }
+    
+    private void InitializeEmployeesTab(TabPage tab)
+    {
+        var dgvEmployees = new DataGridView() { Dock = DockStyle.Fill };
+        var btnAddEmployee = new Button() { Text = "Добавить сотрудника", Dock = DockStyle.Top };
+        var btnDismiss = new Button() { Text = "Уволить", Dock = DockStyle.Top };
+        
+        dgvEmployees.AutoGenerateColumns = false;
+        dgvEmployees.Columns.AddRange(new DataGridViewColumn[] {
+            new DataGridViewTextBoxColumn() { Name = "FullName", HeaderText = "ФИО" },
+            new DataGridViewTextBoxColumn() { Name = "Role", HeaderText = "Должность" },
+            new DataGridViewTextBoxColumn() { Name = "Specialization", HeaderText = "Специализация" },
+            new DataGridViewCheckBoxColumn() { Name = "IsActive", HeaderText = "Активен" }
+        });
+        
+        btnAddEmployee.Click += (s, e) => {
+            var addForm = new AddEmployeeForm();
+            if (addForm.ShowDialog() == DialogResult.OK)
+            {
+                RefreshEmployeesGrid(dgvEmployees);
+            }
+        };
+        
+        btnDismiss.Click += (s, e) => {
+            if (dgvEmployees.SelectedRows.Count > 0)
+            {
+                var employeeId = (int)dgvEmployees.SelectedRows[0].Cells["UserID"].Value;
+                DismissEmployee(employeeId);
+                RefreshEmployeesGrid(dgvEmployees);
+            }
+        };
+        
+        tab.Controls.AddRange(new Control[] { dgvEmployees, btnDismiss, btnAddEmployee });
+        RefreshEmployeesGrid(dgvEmployees);
+    }
+    
+    private void InitializeShiftsTab(TabPage tab)
+    {
+        var dgvShifts = new DataGridView() { Dock = DockStyle.Fill };
+        var btnAddShift = new Button() { Text = "Добавить смену", Dock = DockStyle.Top };
+        var datePicker = new MonthCalendar() { Dock = DockStyle.Left, MaxSelectionCount = 1 };
+        
+        dgvShifts.AutoGenerateColumns = false;
+        dgvShifts.Columns.AddRange(new DataGridViewColumn[] {
+            new DataGridViewTextBoxColumn() { Name = "ShiftDate", HeaderText = "Дата" },
+            new DataGridViewTextBoxColumn() { Name = "ShiftType", HeaderText = "Тип смены" },
+            new DataGridViewTextBoxColumn() { Name = "Employees", HeaderText = "Сотрудники" }
+        });
+        
+        datePicker.DateChanged += (s, e) => {
+            RefreshShiftsGrid(dgvShifts, datePicker.SelectionStart);
+        };
+        
+        btnAddShift.Click += (s, e) => {
+            var addForm = new AddShiftForm();
+            if (addForm.ShowDialog() == DialogResult.OK)
+            {
+                RefreshShiftsGrid(dgvShifts, datePicker.SelectionStart);
+            }
+        };
+        
+        var splitContainer = new SplitContainer() { Dock = DockStyle.Fill, Orientation = Orientation.Horizontal };
+        splitContainer.Panel1.Controls.Add(datePicker);
+        splitContainer.Panel2.Controls.Add(dgvShifts);
+        
+        tab.Controls.AddRange(new Control[] { splitContainer, btnAddShift });
+        RefreshShiftsGrid(dgvShifts, DateTime.Today);
+    }
+    
+    // Аналогичные методы для других вкладок...
+}
+```
+
+## Форма врача (DoctorMainForm)
+
+```csharp
+public class DoctorMainForm : Form
+{
+    private TabControl tabControl;
+    
+    public DoctorMainForm()
+    {
+        this.Text = "Рабочее место врача";
+        this.WindowState = FormWindowState.Maximized;
+        
+        tabControl = new TabControl() { Dock = DockStyle.Fill };
+        
+        // Вкладка медкарт
+        var tabMedicalCards = new TabPage("Медкарты");
+        InitializeMedicalCardsTab(tabMedicalCards);
+        
+        // Вкладка расписания
+        var tabSchedule = new TabPage("Расписание");
+        InitializeScheduleTab(tabSchedule);
+        
+        tabControl.TabPages.AddRange(new[] { tabMedicalCards, tabSchedule });
+        this.Controls.Add(tabControl);
+    }
+    
+    private void InitializeMedicalCardsTab(TabPage tab)
+    {
+        var dgvCards = new DataGridView() { Dock = DockStyle.Fill };
+        var btnViewCard = new Button() { Text = "Просмотреть/Изменить", Dock = DockStyle.Top };
+        var searchPanel = new Panel() { Dock = DockStyle.Top, Height = 40 };
+        var txtSearch = new TextBox() { Dock = DockStyle.Fill };
+        var btnSearch = new Button() { Text = "Поиск", Dock = DockStyle.Right };
+        
+        dgvCards.AutoGenerateColumns = false;
+        dgvCards.Columns.AddRange(new DataGridViewColumn[] {
+            new DataGridViewTextBoxColumn() { Name = "PatientID", HeaderText = "ID", Visible = false },
+            new DataGridViewTextBoxColumn() { Name = "FullName", HeaderText = "Пациент" },
+            new DataGridViewTextBoxColumn() { Name = "BirthDate", HeaderText = "Дата рождения" },
+            new DataGridViewTextBoxColumn() { Name = "InsuranceNumber", HeaderText = "Страховой номер" }
+        });
+        
+        btnViewCard.Click += (s, e) => {
+            if (dgvCards.SelectedRows.Count > 0)
+            {
+                var patientId = (int)dgvCards.SelectedRows[0].Cells["PatientID"].Value;
+                var cardForm = new MedicalCardForm(patientId);
+                cardForm.ShowDialog();
+            }
+        };
+        
+        btnSearch.Click += (s, e) => {
+            FilterMedicalCards(dgvCards, txtSearch.Text);
+        };
+        
+        searchPanel.Controls.AddRange(new Control[] { txtSearch, btnSearch });
+        
+        tab.Controls.AddRange(new Control[] { dgvCards, btnViewCard, searchPanel });
+        LoadMedicalCards(dgvCards);
+    }
+    
+    private void InitializeScheduleTab(TabPage tab)
+    {
+        var dgvAppointments = new DataGridView() { Dock = DockStyle.Fill };
+        var datePicker = new MonthCalendar() { Dock = DockStyle.Top, MaxSelectionCount = 1 };
+        
+        dgvAppointments.AutoGenerateColumns = false;
+        dgvAppointments.Columns.AddRange(new DataGridViewColumn[] {
+            new DataGridViewTextBoxColumn() { Name = "AppointmentTime", HeaderText = "Время" },
+            new DataGridViewTextBoxColumn() { Name = "PatientName", HeaderText = "Пациент" },
+            new DataGridViewTextBoxColumn() { Name = "Status", HeaderText = "Статус" }
+        });
+        
+        datePicker.DateChanged += (s, e) => {
+            LoadDoctorSchedule(dgvAppointments, datePicker.SelectionStart);
+        };
+        
+        tab.Controls.AddRange(new Control[] { dgvAppointments, datePicker });
+        LoadDoctorSchedule(dgvAppointments, DateTime.Today);
+    }
+}
+```
+
+## Форма медсестры (NurseMainForm)
+
+```csharp
+public class NurseMainForm : Form
+{
+    private TabControl tabControl;
+    
+    public NurseMainForm()
+    {
+        this.Text = "Рабочее место медсестры";
+        this.WindowState = FormWindowState.Maximized;
+        
+        tabControl = new TabControl() { Dock = DockStyle.Fill };
+        
+        // Вкладка процедур
+        var tabProcedures = new TabPage("Процедуры");
+        InitializeProceduresTab(tabProcedures);
+        
+        // Вкладка расписания
+        var tabSchedule = new TabPage("Расписание");
+        InitializeScheduleTab(tabSchedule);
+        
+        tabControl.TabPages.AddRange(new[] { tabProcedures, tabSchedule });
+        this.Controls.Add(tabControl);
+    }
+    
+    private void InitializeProceduresTab(TabPage tab)
+    {
+        var dgvProcedures = new DataGridView() { Dock = DockStyle.Fill };
+        var btnAddProcedure = new Button() { Text = "Добавить процедуру", Dock = DockStyle.Top };
+        var cmbProcedureType = new ComboBox() { Dock = DockStyle.Top };
+        
+        dgvProcedures.AutoGenerateColumns = false;
+        dgvProcedures.Columns.AddRange(new DataGridViewColumn[] {
+            new DataGridViewTextBoxColumn() { Name = "ProcedureDate", HeaderText = "Дата" },
+            new DataGridViewTextBoxColumn() { Name = "ProcedureName", HeaderText = "Процедура" },
+            new DataGridViewTextBoxColumn() { Name = "PatientName", HeaderText = "Пациент" }
+        });
+        
+        cmbProcedureType.DataSource = GetProcedureTypes();
+        cmbProcedureType.DisplayMember = "ProcedureName";
+        
+        btnAddProcedure.Click += (s, e) => {
+            if (cmbProcedureType.SelectedItem != null)
+            {
+                var addForm = new AddProcedureForm((Procedure)cmbProcedureType.SelectedItem);
+                if (addForm.ShowDialog() == DialogResult.OK)
+                {
+                    RefreshProceduresGrid(dgvProcedures);
+                }
+            }
+        };
+        
+        tab.Controls.AddRange(new Control[] { dgvProcedures, btnAddProcedure, cmbProcedureType });
+        RefreshProceduresGrid(dgvProcedures);
+    }
+    
+    private void InitializeScheduleTab(TabPage tab)
+    {
+        var dgvSchedule = new DataGridView() { Dock = DockStyle.Fill };
+        var datePicker = new MonthCalendar() { Dock = DockStyle.Top, MaxSelectionCount = 1 };
+        
+        dgvSchedule.AutoGenerateColumns = false;
+        dgvSchedule.Columns.AddRange(new DataGridViewColumn[] {
+            new DataGridViewTextBoxColumn() { Name = "ShiftTime", HeaderText = "Время смены" },
+            new DataGridViewTextBoxColumn() { Name = "DoctorName", HeaderText = "Врач" },
+            new DataGridViewTextBoxColumn() { Name = "AppointmentsCount", HeaderText = "Записей" }
+        });
+        
+        datePicker.DateChanged += (s, e) => {
+            LoadNurseSchedule(dgvSchedule, datePicker.SelectionStart);
+        };
+        
+        tab.Controls.AddRange(new Control[] { dgvSchedule, datePicker });
+        LoadNurseSchedule(dgvSchedule, DateTime.Today);
+    }
+}
+```
+
+## Вспомогательные формы
+
+### Форма медицинской карты (MedicalCardForm)
+
+```csharp
+public class MedicalCardForm : Form
+{
+    private TabControl tabControl;
+    private int patientId;
+    
+    public MedicalCardForm(int patientId)
+    {
+        this.patientId = patientId;
+        this.Text = "Медицинская карта пациента";
+        this.Size = new Size(800, 600);
+        
+        tabControl = new TabControl() { Dock = DockStyle.Fill };
+        
+        // Вкладка основной информации
+        var tabInfo = new TabPage("Основная информация");
+        InitializeInfoTab(tabInfo);
+        
+        // Вкладка записей
+        var tabRecords = new TabPage("Записи");
+        InitializeRecordsTab(tabRecords);
+        
+        tabControl.TabPages.AddRange(new[] { tabInfo, tabRecords });
+        this.Controls.Add(tabControl);
+        
+        LoadPatientData();
+    }
+    
+    private void InitializeInfoTab(TabPage tab)
+    {
+        // Элементы для отображения основной информации о пациенте
+        var lblName = new Label() { Text = "ФИО:", Location = new Point(20, 20) };
+        var txtName = new TextBox() { Location = new Point(120, 20), Width = 300, ReadOnly = true };
+        
+        var lblBirthDate = new Label() { Text = "Дата рождения:", Location = new Point(20, 60) };
+        var txtBirthDate = new TextBox() { Location = new Point(120, 60), Width = 100, ReadOnly = true };
+        
+        // Добавление элементов на вкладку
+        tab.Controls.AddRange(new Control[] {
+            lblName, txtName,
+            lblBirthDate, txtBirthDate
+            // Другие поля информации
+        });
+    }
+    
+    private void InitializeRecordsTab(TabPage tab)
+    {
+        var dgvRecords = new DataGridView() { Dock = DockStyle.Fill };
+        var btnAddRecord = new Button() { Text = "Добавить запись", Dock = DockStyle.Top };
+        
+        dgvRecords.AutoGenerateColumns = false;
+        dgvRecords.Columns.AddRange(new DataGridViewColumn[] {
+            new DataGridViewTextBoxColumn() { Name = "RecordDate", HeaderText = "Дата" },
+            new DataGridViewTextBoxColumn() { Name = "DoctorName", HeaderText = "Врач" },
+            new DataGridViewTextBoxColumn() { Name = "Diagnosis", HeaderText = "Диагноз" },
+            new DataGridViewCheckBoxColumn() { Name = "HasSickLeave", HeaderText = "Больничный" }
+        });
+        
+        btnAddRecord.Click += (s, e) => {
+            var addForm = new AddMedicalRecordForm(patientId);
+            if (addForm.ShowDialog() == DialogResult.OK)
+            {
+                LoadMedicalRecords();
+            }
+        };
+        
+        tab.Controls.AddRange(new Control[] { dgvRecords, btnAddRecord });
+        LoadMedicalRecords();
+    }
+    
+    private void LoadPatientData()
+    {
+        // Загрузка данных пациента из БД
+    }
+    
+    private void LoadMedicalRecords()
+    {
+        // Загрузка записей медкарты из БД
+    }
+}
+```
+
+### Форма добавления записи в медкарту (AddMedicalRecordForm)
+
+```csharp
+public class AddMedicalRecordForm : Form
+{
+    public AddMedicalRecordForm(int patientId)
+    {
+        this.Text = "Добавление записи в медкарту";
+        this.Size = new Size(600, 500);
+        this.FormBorderStyle = FormBorderStyle.FixedDialog;
+        
+        // Основные элементы формы
+        var txtDiagnosis = new TextBox() { Multiline = true, Dock = DockStyle.Top, Height = 100 };
+        var txtTreatment = new TextBox() { Multiline = true, Dock = DockStyle.Top, Height = 100 };
+        
+        // Группа для больничного листа
+        var gbSickLeave = new GroupBox() { Text = "Больничный лист", Dock = DockStyle.Top };
+        var chkSickLeave = new CheckBox() { Text = "Выдать больничный", Location = new Point(20, 20) };
+        var dtpSickLeaveStart = new DateTimePicker() { Location = new Point(20, 50), Enabled = false };
+        var dtpSickLeaveEnd = new DateTimePicker() { Location = new Point(20, 80), Enabled = false };
+        
+        chkSickLeave.CheckedChanged += (s, e) => {
+            dtpSickLeaveStart.Enabled = chkSickLeave.Checked;
+            dtpSickLeaveEnd.Enabled = chkSickLeave.Checked;
+        };
+        
+        gbSickLeave.Controls.AddRange(new Control[] { chkSickLeave, dtpSickLeaveStart, dtpSickLeaveEnd });
+        
+        // Кнопки сохранения/отмены
+        var btnSave = new Button() { Text = "Сохранить", Dock = DockStyle.Bottom, DialogResult = DialogResult.OK };
+        var btnCancel = new Button() { Text = "Отмена", Dock = DockStyle.Bottom, DialogResult = DialogResult.Cancel };
+        
+        // Добавление элементов на форму
+        this.Controls.AddRange(new Control[] {
+            new Label() { Text = "Диагноз:", Dock = DockStyle.Top },
+            txtDiagnosis,
+            new Label() { Text = "Лечение:", Dock = DockStyle.Top },
+            txtTreatment,
+            gbSickLeave,
+            btnSave,
+            btnCancel
+        });
+    }
+}
+```
+
