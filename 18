@@ -1,0 +1,87 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+usingSystem.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespaceWindowsFormsApp5
+{
+publicpartialclassLoginForm : Form
+{
+private (string Login, string Password, bool IsBlocked)[] users = new (string, string, bool)[]
+{
+            ("admin", "admin111", false), // Администратор
+            ("Daria", "1234", false)     // Пользователь
+        };
+
+privateint loginAttempts = 0;
+
+publicLoginForm()
+        {
+            InitializeComponent();
+        }
+
+privatevoidbtnLogin_Click(object sender, EventArgs e)
+{
+string login = txtLogin.Text;
+string password = txtPassword.Text;
+
+if (string.IsNullOrWhiteSpace(login) || string.IsNullOrWhiteSpace(password))
+{
+MessageBox.Show("Поля 'Логин' и 'Пароль' должныбытьзаполнены.", MessageBoxButtons.OK, MessageBoxIcon.Error);
+return;
+            }
+
+var user = users.FirstOrDefault(u => u.Login == login);
+
+if (user.Login == null)
+            {
+                MessageBox.Show("Вы ввели неверный логин или пароль. Пожалуйста проверьте ещё раз введенные данные.", MessageBoxButtons.OK, MessageBoxIcon.Error);
+return;
+            }
+
+if (user.IsBlocked)
+            {
+MessageBox.Show("Вызаблокированы. Обратитеськадминистратору.", MessageBoxButtons.OK, MessageBoxIcon.Error);
+return;
+            }
+
+if (user.Password == password)
+            {
+MessageBox.Show("Выуспешноавторизовались.", MessageBoxButtons.OK, MessageBoxIcon.Information);
+MainForm mainForm = new MainForm(user.Login);
+this.Hide();
+                mainForm.Show();
+            }
+else
+            {
+                loginAttempts++;
+if (loginAttempts >= 3)
+                {
+                    BlockUser(login);
+MessageBoxButtons.OK, MessageBoxIcon.Error);
+}
+else
+                {
+                    MessageBox.Show("Вы ввели неверный логин или пароль. Пожалуйста проверьте ещё раз введенные данные.", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+privatevoidBlockUser(string login)
+{
+for (int i = 0; i < users.Length; i++)
+{
+if (users[i].Login == login)
+{
+                    users[i].IsBlocked = true;
+break;
+                }
+            }
+        }
+    }
+}
