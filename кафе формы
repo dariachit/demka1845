@@ -1,0 +1,358 @@
+# Интерфейс системы автоматизации кафе на WinForms
+
+## 1. Форма авторизации (LoginForm)
+
+```csharp
+public class LoginForm : Form
+{
+    private TextBox txtLogin = new TextBox();
+    private TextBox txtPassword = new TextBox();
+    private Button btnLogin = new Button();
+    private Button btnCancel = new Button();
+    private Label lblTitle = new Label();
+    
+    public LoginForm()
+    {
+        this.Text = "Вход в систему";
+        this.Size = new Size(300, 200);
+        
+        lblTitle.Text = "Кафе Delice - Авторизация";
+        lblTitle.Location = new Point(50, 20);
+        lblTitle.AutoSize = true;
+        
+        txtLogin.Location = new Point(50, 50);
+        txtLogin.PlaceholderText = "Логин";
+        txtLogin.Width = 200;
+        
+        txtPassword.Location = new Point(50, 80);
+        txtPassword.PlaceholderText = "Пароль";
+        txtPassword.Width = 200;
+        txtPassword.PasswordChar = '*';
+        
+        btnLogin.Text = "Войти";
+        btnLogin.Location = new Point(50, 120);
+        btnLogin.Click += BtnLogin_Click;
+        
+        btnCancel.Text = "Отмена";
+        btnCancel.Location = new Point(150, 120);
+        btnCancel.Click += (s, e) => this.Close();
+        
+        this.Controls.AddRange(new Control[] { lblTitle, txtLogin, txtPassword, btnLogin, btnCancel });
+    }
+    
+    private void BtnLogin_Click(object sender, EventArgs e)
+    {
+        // Проверка логина/пароля и открытие соответствующей формы
+        if (AuthenticateUser(txtLogin.Text, txtPassword.Text))
+        {
+            this.Hide();
+            OpenDashboardBasedOnRole();
+        }
+        else
+        {
+            MessageBox.Show("Неверный логин или пароль", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+}
+```
+
+## 2. Главная форма администратора (AdminDashboardForm)
+
+```csharp
+public class AdminDashboardForm : Form
+{
+    private TabControl tabControl = new TabControl();
+    private DataGridView dgvEmployees = new DataGridView();
+    private DataGridView dgvShifts = new DataGridView();
+    private DataGridView dgvOrders = new DataGridView();
+    private Button btnAddEmployee = new Button();
+    private Button btnFireEmployee = new Button();
+    private Button btnAddShift = new Button();
+    
+    public AdminDashboardForm()
+    {
+        this.Text = "Кафе Delice - Администратор";
+        this.Size = new Size(800, 600);
+        
+        // Настройка TabControl
+        tabControl.Dock = DockStyle.Fill;
+        tabControl.TabPages.Add("Сотрудники");
+        tabControl.TabPages.Add("Смены");
+        tabControl.TabPages.Add("Заказы");
+        
+        // Вкладка "Сотрудники"
+        dgvEmployees.Dock = DockStyle.Fill;
+        dgvEmployees.ReadOnly = true;
+        dgvEmployees.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+        tabControl.TabPages[0].Controls.Add(dgvEmployees);
+        
+        btnAddEmployee.Text = "Добавить сотрудника";
+        btnAddEmployee.Location = new Point(10, 10);
+        btnAddEmployee.Click += BtnAddEmployee_Click;
+        tabControl.TabPages[0].Controls.Add(btnAddEmployee);
+        
+        btnFireEmployee.Text = "Уволить";
+        btnFireEmployee.Location = new Point(150, 10);
+        btnFireEmployee.Click += BtnFireEmployee_Click;
+        tabControl.TabPages[0].Controls.Add(btnFireEmployee);
+        
+        // Вкладка "Смены"
+        dgvShifts.Dock = DockStyle.Fill;
+        dgvShifts.ReadOnly = true;
+        tabControl.TabPages[1].Controls.Add(dgvShifts);
+        
+        btnAddShift.Text = "Добавить смену";
+        btnAddShift.Location = new Point(10, 10);
+        btnAddShift.Click += BtnAddShift_Click;
+        tabControl.TabPages[1].Controls.Add(btnAddShift);
+        
+        // Вкладка "Заказы"
+        dgvOrders.Dock = DockStyle.Fill;
+        dgvOrders.ReadOnly = true;
+        tabControl.TabPages[2].Controls.Add(dgvOrders);
+        
+        this.Controls.Add(tabControl);
+        LoadData();
+    }
+    
+    private void LoadData()
+    {
+        // Загрузка данных из БД
+        dgvEmployees.DataSource = GetEmployees();
+        dgvShifts.DataSource = GetShifts();
+        dgvOrders.DataSource = GetOrders();
+    }
+    
+    private void BtnAddEmployee_Click(object sender, EventArgs e)
+    {
+        var addForm = new AddEmployeeForm();
+        if (addForm.ShowDialog() == DialogResult.OK)
+        {
+            // Добавление сотрудника в БД
+            LoadData();
+        }
+    }
+    
+    private void BtnFireEmployee_Click(object sender, EventArgs e)
+    {
+        if (dgvEmployees.SelectedRows.Count > 0)
+        {
+            // Увольнение сотрудника
+            LoadData();
+        }
+    }
+    
+    private void BtnAddShift_Click(object sender, EventArgs e)
+    {
+        var shiftForm = new AddShiftForm();
+        if (shiftForm.ShowDialog() == DialogResult.OK)
+        {
+            // Добавление смены в БД
+            LoadData();
+        }
+    }
+}
+```
+
+## 3. Форма официанта (WaiterForm)
+
+```csharp
+public class WaiterForm : Form
+{
+    private DataGridView dgvActiveOrders = new DataGridView();
+    private DataGridView dgvTables = new DataGridView();
+    private Button btnCreateOrder = new Button();
+    private Button btnMarkPaid = new Button();
+    
+    public WaiterForm()
+    {
+        this.Text = "Кафе Delice - Официант";
+        this.Size = new Size(800, 600);
+        
+        SplitContainer splitContainer = new SplitContainer();
+        splitContainer.Dock = DockStyle.Fill;
+        splitContainer.Orientation = Orientation.Horizontal;
+        
+        // Верхняя панель - активные заказы
+        dgvActiveOrders.Dock = DockStyle.Fill;
+        dgvActiveOrders.ReadOnly = true;
+        splitContainer.Panel1.Controls.Add(dgvActiveOrders);
+        
+        // Нижняя панель - столики
+        dgvTables.Dock = DockStyle.Fill;
+        dgvTables.ReadOnly = true;
+        splitContainer.Panel2.Controls.Add(dgvTables);
+        
+        // Кнопки управления
+        btnCreateOrder.Text = "Создать заказ";
+        btnCreateOrder.Location = new Point(10, 10);
+        btnCreateOrder.Click += BtnCreateOrder_Click;
+        splitContainer.Panel2.Controls.Add(btnCreateOrder);
+        
+        btnMarkPaid.Text = "Отметить оплату";
+        btnMarkPaid.Location = new Point(150, 10);
+        btnMarkPaid.Click += BtnMarkPaid_Click;
+        splitContainer.Panel1.Controls.Add(btnMarkPaid);
+        
+        this.Controls.Add(splitContainer);
+        LoadData();
+    }
+    
+    private void LoadData()
+    {
+        dgvActiveOrders.DataSource = GetActiveOrders();
+        dgvTables.DataSource = GetTables();
+    }
+    
+    private void BtnCreateOrder_Click(object sender, EventArgs e)
+    {
+        if (dgvTables.SelectedRows.Count > 0)
+        {
+            var orderForm = new CreateOrderForm();
+            if (orderForm.ShowDialog() == DialogResult.OK)
+            {
+                // Создание заказа
+                LoadData();
+            }
+        }
+    }
+    
+    private void BtnMarkPaid_Click(object sender, EventArgs e)
+    {
+        if (dgvActiveOrders.SelectedRows.Count > 0)
+        {
+            // Отметка заказа как оплаченного
+            LoadData();
+        }
+    }
+}
+```
+
+## 4. Форма повара (ChefForm)
+
+```csharp
+public class ChefForm : Form
+{
+    private DataGridView dgvOrders = new DataGridView();
+    private Button btnMarkPreparing = new Button();
+    private Button btnMarkReady = new Button();
+    
+    public ChefForm()
+    {
+        this.Text = "Кафе Delice - Повар";
+        this.Size = new Size(800, 600);
+        
+        dgvOrders.Dock = DockStyle.Fill;
+        dgvOrders.ReadOnly = true;
+        this.Controls.Add(dgvOrders);
+        
+        btnMarkPreparing.Text = "В работе";
+        btnMarkPreparing.Location = new Point(10, 10);
+        btnMarkPreparing.Click += BtnMarkPreparing_Click;
+        this.Controls.Add(btnMarkPreparing);
+        
+        btnMarkReady.Text = "Готово";
+        btnMarkReady.Location = new Point(150, 10);
+        btnMarkReady.Click += BtnMarkReady_Click;
+        this.Controls.Add(btnMarkReady);
+        
+        LoadData();
+    }
+    
+    private void LoadData()
+    {
+        dgvOrders.DataSource = GetKitchenOrders();
+    }
+    
+    private void BtnMarkPreparing_Click(object sender, EventArgs e)
+    {
+        if (dgvOrders.SelectedRows.Count > 0)
+        {
+            // Изменение статуса заказа на "В работе"
+            LoadData();
+        }
+    }
+    
+    private void BtnMarkReady_Click(object sender, EventArgs e)
+    {
+        if (dgvOrders.SelectedRows.Count > 0)
+        {
+            // Изменение статуса заказа на "Готово"
+            LoadData();
+        }
+    }
+}
+```
+
+## 5. Вспомогательные формы
+
+### Форма добавления сотрудника (AddEmployeeForm)
+
+```csharp
+public class AddEmployeeForm : Form
+{
+    private TextBox txtFullName = new TextBox();
+    private ComboBox cmbRole = new ComboBox();
+    private TextBox txtLogin = new TextBox();
+    private TextBox txtPassword = new TextBox();
+    private Button btnSave = new Button();
+    private Button btnCancel = new Button();
+    
+    public AddEmployeeForm()
+    {
+        this.Text = "Добавление сотрудника";
+        this.Size = new Size(300, 250);
+        
+        // Настройка элементов управления
+        // ...
+        
+        this.Controls.AddRange(new Control[] { /* элементы формы */ });
+    }
+}
+```
+
+### Форма создания заказа (CreateOrderForm)
+
+```csharp
+public class CreateOrderForm : Form
+{
+    private ComboBox cmbTables = new ComboBox();
+    private NumericUpDown numClients = new NumericUpDown();
+    private CheckedListBox chkMenuItems = new CheckedListBox();
+    private Button btnSave = new Button();
+    private Button btnCancel = new Button();
+    
+    public CreateOrderForm()
+    {
+        this.Text = "Новый заказ";
+        this.Size = new Size(400, 500);
+        
+        // Настройка элементов управления
+        // ...
+        
+        this.Controls.AddRange(new Control[] { /* элементы формы */ });
+    }
+}
+```
+
+## Реализация навигации
+
+```csharp
+private void OpenDashboardBasedOnRole()
+{
+    switch (currentUser.Role)
+    {
+        case "admin":
+            var adminForm = new AdminDashboardForm();
+            adminForm.Show();
+            break;
+        case "waiter":
+            var waiterForm = new WaiterForm();
+            waiterForm.Show();
+            break;
+        case "chef":
+            var chefForm = new ChefForm();
+            chefForm.Show();
+            break;
+    }
+}
