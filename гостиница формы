@@ -1,0 +1,459 @@
+Интерфейс системы управления гостиничным комплексом в WinForms
+Основные формы системы
+1. Форма авторизации (LoginForm)
+csharp
+public class LoginForm : Form
+{
+    private TextBox txtUsername = new TextBox();
+    private TextBox txtPassword = new TextBox();
+    private Button btnLogin = new Button();
+    private Label lblTitle = new Label();
+    private Label lblError = new Label();
+
+    public LoginForm()
+    {
+        this.Text = "Гостиничный комплекс - Авторизация";
+        this.Size = new Size(350, 250);
+        this.StartPosition = FormStartPosition.CenterScreen;
+        
+        lblTitle.Text = "Вход в систему";
+        lblTitle.Font = new Font("Arial", 14, FontStyle.Bold);
+        lblTitle.Location = new Point(120, 30);
+        lblTitle.AutoSize = true;
+        
+        Label lblUser = new Label();
+        lblUser.Text = "Логин:";
+        lblUser.Location = new Point(50, 80);
+        
+        txtUsername.Location = new Point(120, 80);
+        txtUsername.Width = 180;
+        
+        Label lblPass = new Label();
+        lblPass.Text = "Пароль:";
+        lblPass.Location = new Point(50, 120);
+        
+        txtPassword.Location = new Point(120, 120);
+        txtPassword.Width = 180;
+        txtPassword.PasswordChar = '*';
+        
+        btnLogin.Text = "Войти";
+        btnLogin.Location = new Point(120, 160);
+        btnLogin.Width = 100;
+        btnLogin.Click += BtnLogin_Click;
+        
+        lblError.ForeColor = Color.Red;
+        lblError.Location = new Point(50, 200);
+        lblError.AutoSize = true;
+        
+        this.Controls.AddRange(new Control[] { lblTitle, lblUser, txtUsername, lblPass, txtPassword, btnLogin, lblError });
+    }
+
+    private void BtnLogin_Click(object sender, EventArgs e)
+    {
+        if (AuthenticateUser(txtUsername.Text, txtPassword.Text))
+        {
+            this.Hide();
+            OpenDashboardBasedOnRole();
+        }
+        else
+        {
+            lblError.Text = "Неверный логин или пароль";
+        }
+    }
+}
+2. Главная форма администратора (AdminDashboardForm)
+csharp
+public class AdminDashboardForm : Form
+{
+    private TabControl tabControl = new TabControl();
+    private DataGridView dgvUsers = new DataGridView();
+    private DataGridView dgvLogs = new DataGridView();
+    private Button btnAddUser = new Button();
+    private Button btnBackup = new Button();
+
+    public AdminDashboardForm()
+    {
+        this.Text = "Гостиничный комплекс - Администратор";
+        this.Size = new Size(900, 600);
+        this.StartPosition = FormStartPosition.CenterScreen;
+        
+        tabControl.Dock = DockStyle.Fill;
+        
+        // Вкладка пользователей
+        TabPage tabUsers = new TabPage("Пользователи");
+        dgvUsers.Dock = DockStyle.Fill;
+        dgvUsers.ReadOnly = true;
+        dgvUsers.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+        dgvUsers.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        
+        btnAddUser.Text = "Добавить пользователя";
+        btnAddUser.Location = new Point(10, 10);
+        btnAddUser.Click += BtnAddUser_Click;
+        
+        tabUsers.Controls.Add(dgvUsers);
+        tabUsers.Controls.Add(btnAddUser);
+        
+        // Вкладка системных логов
+        TabPage tabLogs = new TabPage("Системные логи");
+        dgvLogs.Dock = DockStyle.Fill;
+        dgvLogs.ReadOnly = true;
+        dgvLogs.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+        
+        btnBackup.Text = "Создать резервную копию";
+        btnBackup.Location = new Point(10, 10);
+        btnBackup.Click += BtnBackup_Click;
+        
+        tabLogs.Controls.Add(dgvLogs);
+        tabLogs.Controls.Add(btnBackup);
+        
+        tabControl.TabPages.Add(tabUsers);
+        tabControl.TabPages.Add(tabLogs);
+        
+        this.Controls.Add(tabControl);
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        // Загрузка данных из БД
+        dgvUsers.DataSource = GetUsers();
+        dgvLogs.DataSource = GetSystemLogs();
+    }
+
+    private void BtnAddUser_Click(object sender, EventArgs e)
+    {
+        AddUserForm addForm = new AddUserForm();
+        if (addForm.ShowDialog() == DialogResult.OK)
+        {
+            LoadData();
+        }
+    }
+
+    private void BtnBackup_Click(object sender, EventArgs e)
+    {
+        SaveFileDialog saveDialog = new SaveFileDialog();
+        saveDialog.Filter = "Backup files (*.bak)|*.bak";
+        if (saveDialog.ShowDialog() == DialogResult.OK)
+        {
+            CreateDatabaseBackup(saveDialog.FileName);
+            MessageBox.Show("Резервная копия успешно создана", "Успех", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+    }
+}
+3. Главная форма менеджера (ManagerDashboardForm)
+csharp
+public class ManagerDashboardForm : Form
+{
+    private TabControl tabControl = new TabControl();
+    private DataGridView dgvRooms = new DataGridView();
+    private DataGridView dgvBookings = new DataGridView();
+    private DataGridView dgvGuests = new DataGridView();
+    private Button btnNewBooking = new Button();
+
+    public ManagerDashboardForm()
+    {
+        this.Text = "Гостиничный комплекс - Менеджер";
+        this.Size = new Size(1000, 700);
+        this.StartPosition = FormStartPosition.CenterScreen;
+        
+        tabControl.Dock = DockStyle.Fill;
+        
+        // Вкладка номеров
+        TabPage tabRooms = new TabPage("Номера");
+        dgvRooms.Dock = DockStyle.Fill;
+        dgvRooms.ReadOnly = true;
+        dgvRooms.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+        tabRooms.Controls.Add(dgvRooms);
+        
+        // Вкладка бронирований
+        TabPage tabBookings = new TabPage("Бронирования");
+        dgvBookings.Dock = DockStyle.Fill;
+        dgvBookings.ReadOnly = true;
+        dgvBookings.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+        
+        btnNewBooking.Text = "Новое бронирование";
+        btnNewBooking.Location = new Point(10, 10);
+        btnNewBooking.Click += BtnNewBooking_Click;
+        
+        tabBookings.Controls.Add(dgvBookings);
+        tabBookings.Controls.Add(btnNewBooking);
+        
+        // Вкладка гостей
+        TabPage tabGuests = new TabPage("Гости");
+        dgvGuests.Dock = DockStyle.Fill;
+        dgvGuests.ReadOnly = true;
+        dgvGuests.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+        tabGuests.Controls.Add(dgvGuests);
+        
+        tabControl.TabPages.Add(tabRooms);
+        tabControl.TabPages.Add(tabBookings);
+        tabControl.TabPages.Add(tabGuests);
+        
+        this.Controls.Add(tabControl);
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        dgvRooms.DataSource = GetRooms();
+        dgvBookings.DataSource = GetCurrentBookings();
+        dgvGuests.DataSource = GetGuests();
+    }
+
+    private void BtnNewBooking_Click(object sender, EventArgs e)
+    {
+        NewBookingForm bookingForm = new NewBookingForm();
+        if (bookingForm.ShowDialog() == DialogResult.OK)
+        {
+            LoadData();
+        }
+    }
+}
+4. Главная форма сотрудника ресепшн (ReceptionDashboardForm)
+csharp
+public class ReceptionDashboardForm : Form
+{
+    private TabControl tabControl = new TabControl();
+    private DataGridView dgvCheckIns = new DataGridView();
+    private DataGridView dgvAvailableRooms = new DataGridView();
+    private Button btnCheckIn = new Button();
+    private Button btnCheckOut = new Button();
+
+    public ReceptionDashboardForm()
+    {
+        this.Text = "Гостиничный комплекс - Ресепшн";
+        this.Size = new Size(900, 600);
+        this.StartPosition = FormStartPosition.CenterScreen;
+        
+        tabControl.Dock = DockStyle.Fill;
+        
+        // Вкладка заселений
+        TabPage tabCheckIns = new TabPage("Текущие гости");
+        dgvCheckIns.Dock = DockStyle.Fill;
+        dgvCheckIns.ReadOnly = true;
+        dgvCheckIns.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+        dgvCheckIns.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
+        
+        btnCheckOut.Text = "Выселить";
+        btnCheckOut.Location = new Point(10, 10);
+        btnCheckOut.Click += BtnCheckOut_Click;
+        
+        tabCheckIns.Controls.Add(dgvCheckIns);
+        tabCheckIns.Controls.Add(btnCheckOut);
+        
+        // Вкладка свободных номеров
+        TabPage tabRooms = new TabPage("Свободные номера");
+        dgvAvailableRooms.Dock = DockStyle.Fill;
+        dgvAvailableRooms.ReadOnly = true;
+        dgvAvailableRooms.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+        
+        btnCheckIn.Text = "Заселить";
+        btnCheckIn.Location = new Point(10, 10);
+        btnCheckIn.Click += BtnCheckIn_Click;
+        
+        tabRooms.Controls.Add(dgvAvailableRooms);
+        tabRooms.Controls.Add(btnCheckIn);
+        
+        tabControl.TabPages.Add(tabCheckIns);
+        tabControl.TabPages.Add(tabRooms);
+        
+        this.Controls.Add(tabControl);
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        dgvCheckIns.DataSource = GetCurrentCheckIns();
+        dgvAvailableRooms.DataSource = GetAvailableRooms();
+    }
+
+    private void BtnCheckIn_Click(object sender, EventArgs e)
+    {
+        if (dgvAvailableRooms.SelectedRows.Count > 0)
+        {
+            CheckInForm checkInForm = new CheckInForm();
+            if (checkInForm.ShowDialog() == DialogResult.OK)
+            {
+                LoadData();
+            }
+        }
+    }
+
+    private void BtnCheckOut_Click(object sender, EventArgs e)
+    {
+        if (dgvCheckIns.SelectedRows.Count > 0)
+        {
+            int checkInId = (int)dgvCheckIns.SelectedRows[0].Cells["check_in_id"].Value;
+            ProcessCheckOut(checkInId);
+            LoadData();
+        }
+    }
+}
+5. Форма добавления нового пользователя (AddUserForm)
+csharp
+public class AddUserForm : Form
+{
+    private TextBox txtFullName = new TextBox();
+    private ComboBox cmbRole = new ComboBox();
+    private TextBox txtUsername = new TextBox();
+    private TextBox txtPassword = new TextBox();
+    private Button btnSave = new Button();
+    private Button btnCancel = new Button();
+
+    public AddUserForm()
+    {
+        this.Text = "Добавление нового пользователя";
+        this.Size = new Size(400, 300);
+        this.StartPosition = FormStartPosition.CenterParent;
+        
+        Label lblName = new Label();
+        lblName.Text = "ФИО:";
+        lblName.Location = new Point(20, 20);
+        
+        txtFullName.Location = new Point(120, 20);
+        txtFullName.Width = 250;
+        
+        Label lblRole = new Label();
+        lblRole.Text = "Роль:";
+        lblRole.Location = new Point(20, 60);
+        
+        cmbRole.Location = new Point(120, 60);
+        cmbRole.Width = 250;
+        cmbRole.DropDownStyle = ComboBoxStyle.DropDownList;
+        cmbRole.Items.AddRange(new string[] { "Администратор", "Менеджер", "Хаускипинг", "Бухгалтер", "Ресепшн" });
+        
+        Label lblUser = new Label();
+        lblUser.Text = "Логин:";
+        lblUser.Location = new Point(20, 100);
+        
+        txtUsername.Location = new Point(120, 100);
+        txtUsername.Width = 250;
+        
+        Label lblPass = new Label();
+        lblPass.Text = "Пароль:";
+        lblPass.Location = new Point(20, 140);
+        
+        txtPassword.Location = new Point(120, 140);
+        txtPassword.Width = 250;
+        txtPassword.PasswordChar = '*';
+        
+        btnSave.Text = "Сохранить";
+        btnSave.Location = new Point(120, 200);
+        btnSave.Click += BtnSave_Click;
+        
+        btnCancel.Text = "Отмена";
+        btnCancel.Location = new Point(220, 200);
+        btnCancel.Click += (s, e) => this.DialogResult = DialogResult.Cancel;
+        
+        this.Controls.AddRange(new Control[] { 
+            lblName, txtFullName, 
+            lblRole, cmbRole, 
+            lblUser, txtUsername, 
+            lblPass, txtPassword, 
+            btnSave, btnCancel 
+        });
+    }
+
+    private void BtnSave_Click(object sender, EventArgs e)
+    {
+        if (ValidateInput())
+        {
+            // Сохранение пользователя в БД
+            this.DialogResult = DialogResult.OK;
+        }
+    }
+
+    private bool ValidateInput()
+    {
+        if (string.IsNullOrWhiteSpace(txtFullName.Text))
+        {
+            MessageBox.Show("Введите ФИО пользователя", "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return false;
+        }
+        // Другие проверки...
+        return true;
+    }
+}
+6. Форма бронирования номера (NewBookingForm)
+csharp
+public class NewBookingForm : Form
+{
+    private ComboBox cmbGuest = new ComboBox();
+    private ComboBox cmbOrganization = new ComboBox();
+    private DateTimePicker dtpCheckIn = new DateTimePicker();
+    private DateTimePicker dtpCheckOut = new DateTimePicker();
+    private DataGridView dgvAvailableRooms = new DataGridView();
+    private Button btnAddRoom = new Button();
+    private Button btnSave = new Button();
+
+    public NewBookingForm()
+    {
+        this.Text = "Новое бронирование";
+        this.Size = new Size(800, 600);
+        this.StartPosition = FormStartPosition.CenterParent;
+        
+        // Настройка элементов управления...
+        
+        this.Controls.AddRange(new Control[] { /* элементы формы */ });
+        LoadData();
+    }
+
+    private void LoadData()
+    {
+        cmbGuest.DataSource = GetGuests();
+        cmbGuest.DisplayMember = "FullName";
+        cmbGuest.ValueMember = "guest_id";
+        
+        cmbOrganization.DataSource = GetOrganizations();
+        cmbOrganization.DisplayMember = "name";
+        cmbOrganization.ValueMember = "org_id";
+        
+        dtpCheckIn.Value = DateTime.Today;
+        dtpCheckOut.Value = DateTime.Today.AddDays(1);
+        
+        dgvAvailableRooms.DataSource = GetAvailableRooms(dtpCheckIn.Value, dtpCheckOut.Value);
+    }
+
+    private void BtnAddRoom_Click(object sender, EventArgs e)
+    {
+        if (dgvAvailableRooms.SelectedRows.Count > 0)
+        {
+            // Добавление номера в бронирование
+        }
+    }
+
+    private void BtnSave_Click(object sender, EventArgs e)
+    {
+        if (ValidateInput())
+        {
+            // Сохранение бронирования
+            this.DialogResult = DialogResult.OK;
+        }
+    }
+}
+Навигация между формами
+csharp
+private void OpenDashboardBasedOnRole(UserRole role)
+{
+    Form dashboardForm = null;
+    
+    switch (role)
+    {
+        case UserRole.Admin:
+            dashboardForm = new AdminDashboardForm();
+            break;
+        case UserRole.Manager:
+            dashboardForm = new ManagerDashboardForm();
+            break;
+        case UserRole.Reception:
+            dashboardForm = new ReceptionDashboardForm();
+            break;
+        // Другие роли...
+    }
+    
+    if (dashboardForm != null)
+    {
+        dashboardForm.Show();
+        this.Hide();
+    }
+}
