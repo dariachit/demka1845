@@ -1,80 +1,222 @@
-1. employees (Сотрудники)
-employee_id – уникальный ID сотрудника.
+# База данных для автоматизации работы кафе
 
-full_name – ФИО.
+## Описание структуры базы данных
 
-role – роль (admin, waiter, chef).
+База данных для кафе состоит из 8 взаимосвязанных таблиц, которые охватывают все аспекты работы заведения: учет сотрудников, управление меню, обработка заказов и контроль смен.
 
-login и password_hash – для авторизации.
+### Основные сущности:
+1. **Сотрудники** (администраторы, официанты, повара)
+2. **Смены** работы сотрудников
+3. **Столики** в кафе
+4. **Категории** блюд/напитков
+5. **Меню** (блюда и напитки)
+6. **Заказы** клиентов
+7. **Позиции заказов** (связь заказов с блюдами)
 
-is_active – работает / уволен (FALSE).
+## Схема базы данных с описанием таблиц и связей
 
-2. shifts (Смены)
-shift_id – уникальный ID смены.
+```sql
+CREATE DATABASE cafe_management;
+USE cafe_management;
 
-shift_date, start_time, end_time – дата и время смены.
+-- 1. Таблица сотрудников
+CREATE TABLE employees (
+    employee_id INT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(100) NOT NULL,
+    role ENUM('admin', 'waiter', 'chef') NOT NULL,
+    login VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) COMMENT 'Сотрудники кафе с учетными данными';
 
-3. shift_assignments (Назначения на смены)
-Связывает employees и shifts.
+-- 2. Таблица смен
+CREATE TABLE shifts (
+    shift_id INT AUTO_INCREMENT PRIMARY KEY,
+    shift_date DATE NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) COMMENT 'График смен сотрудников';
 
-4. tables (Столики)
-table_number – номер столика.
+-- 3. Таблица назначений на смены
+CREATE TABLE shift_assignments (
+    assignment_id INT AUTO_INCREMENT PRIMARY KEY,
+    shift_id INT NOT NULL,
+    employee_id INT NOT NULL,
+    FOREIGN KEY (shift_id) REFERENCES shifts(shift_id),
+    FOREIGN KEY (employee_id) REFERENCES employees(employee_id),
+    UNIQUE (shift_id, employee_id)
+) COMMENT 'Назначение сотрудников на смены';
 
-capacity – вместимость.
+-- 4. Таблица столиков
+CREATE TABLE tables (
+    table_id INT AUTO_INCREMENT PRIMARY KEY,
+    table_number VARCHAR(10) UNIQUE NOT NULL,
+    capacity INT NOT NULL,
+    is_available BOOLEAN DEFAULT TRUE,
+    location_description VARCHAR(100)
+) COMMENT 'Столики в зале кафе';
 
-is_available – свободен / занят.
+-- 5. Таблица категорий меню
+CREATE TABLE menu_categories (
+    category_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    is_food BOOLEAN NOT NULL COMMENT 'True - еда, False - напитки',
+    display_order INT NOT NULL
+) COMMENT 'Категории меню (еда/напитки)';
 
-5. menu_items (Меню)
-name – название блюда/напитка.
+-- 6. Таблица позиций меню
+CREATE TABLE menu_items (
+    item_id INT AUTO_INCREMENT PRIMARY KEY,
+    category_id INT NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    description TEXT,
+    price DECIMAL(10,2) NOT NULL,
+    preparation_time INT COMMENT 'Время приготовления в минутах',
+    is_available BOOLEAN DEFAULT TRUE,
+    FOREIGN KEY (category_id) REFERENCES menu_categories(category_id)
+) COMMENT 'Блюда и напитки в меню';
 
-category – еда или напиток.
+-- 7. Таблица заказов
+CREATE TABLE orders (
+    order_id INT AUTO_INCREMENT PRIMARY KEY,
+    table_id INT NOT NULL,
+    employee_id INT NOT NULL COMMENT 'Официант, принявший заказ',
+    client_count INT NOT NULL,
+    status ENUM('received', 'preparing', 'ready', 'paid') DEFAULT 'received',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    closed_at TIMESTAMP NULL,
+    total_amount DECIMAL(10,2),
+    FOREIGN KEY (table_id) REFERENCES tables(table_id),
+    FOREIGN KEY (employee_id) REFERENCES employees(employee_id)
+) COMMENT 'Заказы клиентов';
 
-price – стоимость.
+-- 8. Таблица позиций заказа
+CREATE TABLE order_items (
+    order_item_id INT AUTO_INCREMENT PRIMARY KEY,
+    order_id INT NOT NULL,
+    item_id INT NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    special_requests TEXT,
+    status ENUM('pending', 'preparing', 'ready', 'served') DEFAULT 'pending',
+    FOREIGN KEY (order_id) REFERENCES orders(order_id),
+    FOREIGN KEY (item_id) REFERENCES menu_items(item_id)
+) COMMENT 'Позиции в заказе (состав заказа)';
+```
 
-is_available – доступно ли сейчас.
+## Основные связи между таблицами
 
-6. orders (Заказы)
-table_id – к какому столику относится.
+1. **Сотрудники (employees)**:
+   - Связаны со сменами через таблицу shift_assignments
+   - Связаны с заказами как принимающие официанты
 
-employee_id – кто официант.
+2. **Смены (shifts)**:
+   - Связаны с сотрудниками через таблицу shift_assignments
 
-status – статус заказа (received, preparing, ready, paid).
+3. **Столики (tables)**:
+   - Связаны с заказами (один столик - много заказов)
 
-closed_at – когда закрыт (оплачен).
+4. **Меню (menu_items)**:
+   - Связаны с категориями
+   - Связаны с заказами через таблицу order_items
 
-7. order_items (Состав заказа)
-Связывает orders и menu_items (какие блюда в заказе).
+5. **Заказы (orders)**:
+   - Связаны со столиками
+   - Связаны с официантами
+   - Связаны с блюдами через таблицу order_items
 
+## Примеры SQL-запросов
 
+### 1. Регистрация нового сотрудника (администратор)
+```sql
+INSERT INTO employees (full_name, role, login, password_hash)
+VALUES ('Иванова Мария', 'waiter', 'ivanova', SHA2('password123', 256));
+```
 
-3. ОСНОВНЫЕ SQL-запросы для работы системы
-Для администратора
-sql
--- Добавление нового сотрудника
-INSERT INTO employees (full_name, role, login, password_hash) 
-VALUES ('Иванов Иван', 'admin', 'ivanov', 'hash123');
+### 2. Назначение сотрудника на смену (администратор)
+```sql
+INSERT INTO shifts (shift_date, start_time, end_time)
+VALUES ('2023-12-15', '08:00:00', '16:00:00');
 
--- Увольнение сотрудника
-UPDATE employees SET is_active = FALSE WHERE employee_id = 1;
+INSERT INTO shift_assignments (shift_id, employee_id)
+VALUES (LAST_INSERT_ID(), 1);
+```
 
--- Назначение на смену
-INSERT INTO shift_assignments (shift_id, employee_id) VALUES (1, 2);
+### 3. Создание нового заказа (официант)
+```sql
+INSERT INTO orders (table_id, employee_id, client_count)
+VALUES (5, 3, 4);
 
--- Просмотр всех заказов
-SELECT * FROM orders;
-Для официанта
-sql
--- Создание заказа
-INSERT INTO orders (table_id, employee_id, client_count) VALUES (3, 5, 2);
-INSERT INTO order_items (order_id, item_id) VALUES (LAST_INSERT_ID(), 10);  -- Добавление блюда
+INSERT INTO order_items (order_id, item_id, quantity)
+VALUES (LAST_INSERT_ID(), 10, 2), (LAST_INSERT_ID(), 15, 1);
+```
 
--- Изменение статуса заказа (оплачен)
-UPDATE orders SET status = 'paid', closed_at = NOW() WHERE order_id = 5;
-Для повара
-sql
--- Просмотр активных заказов
-SELECT * FROM orders WHERE status IN ('received', 'preparing');
+### 4. Изменение статуса блюда (повар)
+```sql
+UPDATE order_items 
+SET status = 'preparing' 
+WHERE order_item_id = 5 AND status = 'pending';
+```
 
--- Изменение статуса (готовится → готов)
-UPDATE orders SET status = 'ready' WHERE order_id = 5;
+### 5. Просмотр активных заказов (повар)
+```sql
+SELECT o.order_id, t.table_number, mi.name, oi.quantity, oi.special_requests
+FROM order_items oi
+JOIN orders o ON oi.order_id = o.order_id
+JOIN tables t ON o.table_id = t.table_id
+JOIN menu_items mi ON oi.item_id = mi.item_id
+WHERE oi.status = 'pending' OR oi.status = 'preparing'
+ORDER BY o.created_at;
+```
+
+### 6. Отметка заказа как оплаченного (официант)
+```sql
+UPDATE orders 
+SET status = 'paid', closed_at = NOW(), total_amount = (
+    SELECT SUM(mi.price * oi.quantity)
+    FROM order_items oi
+    JOIN menu_items mi ON oi.item_id = mi.item_id
+    WHERE oi.order_id = 7
+)
+WHERE order_id = 7;
+```
+
+### 7. Просмотр всех заказов за период (администратор)
+```sql
+SELECT 
+    o.order_id,
+    t.table_number,
+    e.full_name AS waiter,
+    o.client_count,
+    o.status,
+    o.created_at,
+    o.total_amount
+FROM orders o
+JOIN tables t ON o.table_id = t.table_id
+JOIN employees e ON o.employee_id = e.employee_id
+WHERE o.created_at BETWEEN '2023-12-01' AND '2023-12-31'
+ORDER BY o.created_at DESC;
+```
+
+### 8. Просмотр свободных столиков
+```sql
+SELECT table_number, capacity, location_description
+FROM tables
+WHERE is_available = TRUE
+ORDER BY capacity;
+```
+
+### 9. Изменение статуса сотрудника (администратор)
+```sql
+UPDATE employees
+SET is_active = FALSE
+WHERE employee_id = 5;
+```
+
+### 10. Добавление нового блюда в меню (администратор)
+```sql
+INSERT INTO menu_items (category_id, name, description, price, preparation_time)
+VALUES (3, 'Стейк Рибай', 'Мраморная говядина, 300г', 1200.00, 25);
+```
 
