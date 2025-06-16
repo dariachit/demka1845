@@ -1,0 +1,332 @@
+# База данных для информационной системы поликлиники
+
+## Описание структуры базы данных
+
+### Таблицы и их связи
+
+1. **Пользователи (Users)**
+```sql
+CREATE TABLE Users (
+    UserID INT PRIMARY KEY IDENTITY(1,1),
+    Login NVARCHAR(50) NOT NULL UNIQUE,
+    Password NVARCHAR(100) NOT NULL,
+    FullName NVARCHAR(100) NOT NULL,
+    RoleID INT NOT NULL,
+    PositionID INT,
+    SpecializationID INT NULL,
+    IsActive BIT DEFAULT 1,
+    HireDate DATE NOT NULL,
+    DismissalDate DATE NULL,
+    FOREIGN KEY (RoleID) REFERENCES Roles(RoleID),
+    FOREIGN KEY (PositionID) REFERENCES Positions(PositionID),
+    FOREIGN KEY (SpecializationID) REFERENCES Specializations(SpecializationID)
+);
+```
+
+2. **Роли (Roles)**
+```sql
+CREATE TABLE Roles (
+    RoleID INT PRIMARY KEY IDENTITY(1,1),
+    RoleName NVARCHAR(50) NOT NULL UNIQUE,
+    Description NVARCHAR(255)
+);
+```
+
+3. **Должности (Positions)**
+```sql
+CREATE TABLE Positions (
+    PositionID INT PRIMARY KEY IDENTITY(1,1),
+    PositionName NVARCHAR(100) NOT NULL UNIQUE,
+    Description NVARCHAR(255)
+);
+```
+
+4. **Специализации врачей (Specializations)**
+```sql
+CREATE TABLE Specializations (
+    SpecializationID INT PRIMARY KEY IDENTITY(1,1),
+    SpecializationName NVARCHAR(100) NOT NULL UNIQUE,
+    Description NVARCHAR(255)
+);
+```
+
+5. **Пациенты (Patients)**
+```sql
+CREATE TABLE Patients (
+    PatientID INT PRIMARY KEY IDENTITY(1,1),
+    FullName NVARCHAR(100) NOT NULL,
+    BirthDate DATE NOT NULL,
+    Gender CHAR(1) NOT NULL,
+    Address NVARCHAR(255),
+    Phone NVARCHAR(20),
+    Email NVARCHAR(100),
+    InsuranceNumber NVARCHAR(20) NOT NULL UNIQUE,
+    RegistrationDate DATE NOT NULL DEFAULT GETDATE()
+);
+```
+
+6. **Медицинские карты (MedicalCards)**
+```sql
+CREATE TABLE MedicalCards (
+    CardID INT PRIMARY KEY IDENTITY(1,1),
+    PatientID INT NOT NULL,
+    RegistrationDate DATE NOT NULL DEFAULT GETDATE(),
+    LastUpdateDate DATETIME NOT NULL DEFAULT GETDATE(),
+    LastUpdatedBy INT NOT NULL,
+    BloodType NVARCHAR(5),
+    RhFactor CHAR(1),
+    ChronicDiseases NVARCHAR(MAX),
+    Allergies NVARCHAR(MAX),
+    FOREIGN KEY (PatientID) REFERENCES Patients(PatientID),
+    FOREIGN KEY (LastUpdatedBy) REFERENCES Users(UserID)
+);
+```
+
+7. **Записи в медкарте (MedicalRecords)**
+```sql
+CREATE TABLE MedicalRecords (
+    RecordID INT PRIMARY KEY IDENTITY(1,1),
+    CardID INT NOT NULL,
+    RecordDate DATETIME NOT NULL DEFAULT GETDATE(),
+    DoctorID INT NOT NULL,
+    Diagnosis NVARCHAR(MAX),
+    Treatment NVARCHAR(MAX),
+    Prescriptions NVARCHAR(MAX),
+    Notes NVARCHAR(MAX),
+    IsSickLeave BIT DEFAULT 0,
+    SickLeaveStart DATE NULL,
+    SickLeaveEnd DATE NULL,
+    ReferralToSpecialist INT NULL,
+    ReferralToHospital NVARCHAR(255) NULL,
+    FOREIGN KEY (CardID) REFERENCES MedicalCards(CardID),
+    FOREIGN KEY (DoctorID) REFERENCES Users(UserID),
+    FOREIGN KEY (ReferralToSpecialist) REFERENCES Specializations(SpecializationID)
+);
+```
+
+8. **Смены (Shifts)**
+```sql
+CREATE TABLE Shifts (
+    ShiftID INT PRIMARY KEY IDENTITY(1,1),
+    ShiftDate DATE NOT NULL,
+    ShiftTypeID INT NOT NULL,
+    FOREIGN KEY (ShiftTypeID) REFERENCES ShiftTypes(ShiftTypeID)
+);
+```
+
+9. **Типы смен (ShiftTypes)**
+```sql
+CREATE TABLE ShiftTypes (
+    ShiftTypeID INT PRIMARY KEY IDENTITY(1,1),
+    TypeName NVARCHAR(50) NOT NULL UNIQUE,
+    StartTime TIME NOT NULL,
+    EndTime TIME NOT NULL,
+    Description NVARCHAR(255)
+);
+```
+
+10. **Расписание смен (ShiftSchedule)**
+```sql
+CREATE TABLE ShiftSchedule (
+    ScheduleID INT PRIMARY KEY IDENTITY(1,1),
+    ShiftID INT NOT NULL,
+    UserID INT NOT NULL,
+    FOREIGN KEY (ShiftID) REFERENCES Shifts(ShiftID),
+    FOREIGN KEY (UserID) REFERENCES Users(UserID)
+);
+```
+
+11. **Талоны (Appointments)**
+```sql
+CREATE TABLE Appointments (
+    AppointmentID INT PRIMARY KEY IDENTITY(1,1),
+    PatientID INT NOT NULL,
+    DoctorID INT NOT NULL,
+    AppointmentDate DATETIME NOT NULL,
+    Status NVARCHAR(20) NOT NULL DEFAULT 'Запланирован',
+    CreatedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    CreatedBy INT NOT NULL,
+    Notes NVARCHAR(MAX),
+    FOREIGN KEY (PatientID) REFERENCES Patients(PatientID),
+    FOREIGN KEY (DoctorID) REFERENCES Users(UserID),
+    FOREIGN KEY (CreatedBy) REFERENCES Users(UserID)
+);
+```
+
+12. **Процедуры (Procedures)**
+```sql
+CREATE TABLE Procedures (
+    ProcedureID INT PRIMARY KEY IDENTITY(1,1),
+    ProcedureName NVARCHAR(100) NOT NULL,
+    Description NVARCHAR(255),
+    DurationMinutes INT NOT NULL
+);
+```
+
+13. **Выполненные процедуры (PerformedProcedures)**
+```sql
+CREATE TABLE PerformedProcedures (
+    PerformedProcedureID INT PRIMARY KEY IDENTITY(1,1),
+    ProcedureID INT NOT NULL,
+    PatientID INT NOT NULL,
+    PerformedBy INT NOT NULL,
+    PerformedDate DATETIME NOT NULL DEFAULT GETDATE(),
+    Notes NVARCHAR(MAX),
+    FOREIGN KEY (ProcedureID) REFERENCES Procedures(ProcedureID),
+    FOREIGN KEY (PatientID) REFERENCES Patients(PatientID),
+    FOREIGN KEY (PerformedBy) REFERENCES Users(UserID)
+);
+```
+
+## Основные запросы к базе данных
+
+1. **Авторизация пользователя**
+```sql
+SELECT UserID, FullName, RoleID, PositionID, SpecializationID 
+FROM Users 
+WHERE Login = @login AND Password = @password AND IsActive = 1;
+```
+
+2. **Добавление нового пациента**
+```sql
+INSERT INTO Patients (FullName, BirthDate, Gender, Address, Phone, Email, InsuranceNumber)
+VALUES (@fullName, @birthDate, @gender, @address, @phone, @email, @insuranceNumber);
+```
+
+3. **Поиск пациента по ФИО или номеру страховки**
+```sql
+SELECT * FROM Patients 
+WHERE FullName LIKE '%' + @searchTerm + '%' 
+   OR InsuranceNumber LIKE '%' + @searchTerm + '%';
+```
+
+4. **Получение медицинской карты пациента**
+```sql
+SELECT mc.*, p.FullName AS PatientName, p.BirthDate, p.Gender
+FROM MedicalCards mc
+JOIN Patients p ON mc.PatientID = p.PatientID
+WHERE mc.PatientID = @patientID;
+```
+
+5. **Добавление записи в медкарту**
+```sql
+INSERT INTO MedicalRecords (CardID, DoctorID, Diagnosis, Treatment, Prescriptions, 
+                          Notes, IsSickLeave, SickLeaveStart, SickLeaveEnd, 
+                          ReferralToSpecialist, ReferralToHospital)
+VALUES (@cardID, @doctorID, @diagnosis, @treatment, @prescriptions, 
+        @notes, @isSickLeave, @sickLeaveStart, @sickLeaveEnd, 
+        @referralToSpecialist, @referralToHospital);
+
+UPDATE MedicalCards 
+SET LastUpdateDate = GETDATE(), LastUpdatedBy = @doctorID
+WHERE CardID = @cardID;
+```
+
+6. **Создание талона на прием**
+```sql
+INSERT INTO Appointments (PatientID, DoctorID, AppointmentDate, CreatedBy, Notes)
+VALUES (@patientID, @doctorID, @appointmentDate, @createdBy, @notes);
+```
+
+7. **Назначение сотрудника на смену**
+```sql
+INSERT INTO ShiftSchedule (ShiftID, UserID)
+VALUES (@shiftID, @userID);
+```
+
+8. **Получение расписания врача**
+```sql
+SELECT a.AppointmentID, p.FullName AS PatientName, a.AppointmentDate, a.Status
+FROM Appointments a
+JOIN Patients p ON a.PatientID = p.PatientID
+WHERE a.DoctorID = @doctorID 
+  AND a.AppointmentDate BETWEEN @startDate AND @endDate
+ORDER BY a.AppointmentDate;
+```
+
+9. **Получение смен сотрудника**
+```sql
+SELECT s.ShiftDate, st.TypeName, st.StartTime, st.EndTime
+FROM ShiftSchedule ss
+JOIN Shifts s ON ss.ShiftID = s.ShiftID
+JOIN ShiftTypes st ON s.ShiftTypeID = st.ShiftTypeID
+WHERE ss.UserID = @userID
+  AND s.ShiftDate BETWEEN @startDate AND @endDate
+ORDER BY s.ShiftDate, st.StartTime;
+```
+
+10. **Получение списка больничных листов**
+```sql
+SELECT mr.RecordID, p.FullName AS PatientName, mr.SickLeaveStart, mr.SickLeaveEnd, 
+       u.FullName AS DoctorName, mr.Diagnosis
+FROM MedicalRecords mr
+JOIN MedicalCards mc ON mr.CardID = mc.CardID
+JOIN Patients p ON mc.PatientID = p.PatientID
+JOIN Users u ON mr.DoctorID = u.UserID
+WHERE mr.IsSickLeave = 1
+  AND mr.SickLeaveStart <= @date 
+  AND (mr.SickLeaveEnd >= @date OR mr.SickLeaveEnd IS NULL);
+```
+
+11. **Регистрация выполненной процедуры**
+```sql
+INSERT INTO PerformedProcedures (ProcedureID, PatientID, PerformedBy, Notes)
+VALUES (@procedureID, @patientID, @performedBy, @notes);
+```
+
+12. **Увольнение сотрудника**
+```sql
+UPDATE Users 
+SET IsActive = 0, DismissalDate = GETDATE()
+WHERE UserID = @userID;
+```
+
+13. **Получение списка пациентов с активными больничными**
+```sql
+SELECT p.PatientID, p.FullName, mr.SickLeaveStart, mr.SickLeaveEnd, 
+       u.FullName AS DoctorName, mr.Diagnosis
+FROM MedicalRecords mr
+JOIN MedicalCards mc ON mr.CardID = mc.CardID
+JOIN Patients p ON mc.PatientID = p.PatientID
+JOIN Users u ON mr.DoctorID = u.UserID
+WHERE mr.IsSickLeave = 1
+  AND mr.SickLeaveStart <= GETDATE()
+  AND (mr.SickLeaveEnd >= GETDATE() OR mr.SickLeaveEnd IS NULL);
+```
+
+Основные связи:
+Пользователи и их атрибуты:
+
+Каждый пользователь (Users) относится к одной роли (Roles) через RoleID (один ко многим)
+
+Пользователь может иметь одну должность (Positions) через PositionID (один ко многим)
+
+Врачи имеют специализацию (Specializations) через SpecializationID (один ко многим)
+
+Пациенты и медицинские карты:
+
+Каждый пациент (Patients) имеет одну медицинскую карту (MedicalCards) через PatientID (один к одному)
+
+Медкарта содержит множество записей (MedicalRecords) через CardID (один ко многим)
+
+Работа с медицинскими записями:
+
+Записи в медкарте (MedicalRecords) создаются врачами (Users) через DoctorID (один ко многим)
+
+Записи могут содержать направление к специалисту (Specializations) через ReferralToSpecialist (один ко многим)
+
+Расписание и приемы:
+
+Смены (Shifts) относятся к определенному типу (ShiftTypes) через ShiftTypeID (один ко многим)
+
+Сотрудники (Users) назначаются на смены через таблицу ShiftSchedule (многие ко многим)
+
+Талоны на прием (Appointments) связывают пациентов (Patients) и врачей (Users) (многие ко многим)
+
+Медицинские процедуры:
+
+Процедуры (Procedures) выполняются для пациентов (Patients) через таблицу PerformedProcedures (многие ко многим)
+
+Процедуры выполняются медперсоналом (Users) через PerformedBy (один ко многим)
+
+Логические цепочки:
