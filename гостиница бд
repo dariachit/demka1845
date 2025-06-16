@@ -1,0 +1,373 @@
+# База данных для гостиничного комплекса
+
+## Описание структуры базы данных
+
+База данных гостиничного комплекса состоит из 18 взаимосвязанных таблиц, которые охватывают все аспекты управления отелем: от учета номеров и бронирований до управления персоналом и финансового учета.
+
+### Основные сущности:
+
+1. **Пользователи системы** (сотрудники)
+2. **Здания гостиницы** (корпуса)
+3. **Номера** и их категории
+4. **Гости** и **организации-партнеры**
+5. **Бронирования** и **заселения**
+6. **Дополнительные услуги**
+7. **Уборка номеров**
+8. **Финансовые операции**
+9. **Отзывы и жалобы**
+
+## Схема базы данных с описанием таблиц и связей
+
+```sql
+CREATE DATABASE hotel_management;
+USE hotel_management;
+
+-- 1. Таблица сотрудников
+CREATE TABLE employees (
+    employee_id INT AUTO_INCREMENT PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    position ENUM('admin', 'manager', 'housekeeping', 'accountant', 'receptionist') NOT NULL,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    hire_date DATE NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) COMMENT 'Сотрудники гостиницы с учетными данными для системы';
+
+-- 2. Таблица зданий гостиницы
+CREATE TABLE buildings (
+    building_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    star_rating ENUM('2', '3', '4', '5') NOT NULL,
+    floors_count INT NOT NULL,
+    total_rooms INT NOT NULL,
+    has_restaurant BOOLEAN DEFAULT FALSE,
+    has_pool BOOLEAN DEFAULT FALSE,
+    has_spa BOOLEAN DEFAULT FALSE,
+    description TEXT
+) COMMENT 'Корпуса гостиницы с характеристиками';
+
+-- 3. Таблица категорий номеров
+CREATE TABLE room_types (
+    type_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,
+    capacity INT NOT NULL,
+    base_price DECIMAL(10,2) NOT NULL,
+    size_sqm DECIMAL(5,2),
+    amenities TEXT
+) COMMENT 'Типы номеров с ценами и характеристиками';
+
+-- 4. Таблица номеров
+CREATE TABLE rooms (
+    room_id INT AUTO_INCREMENT PRIMARY KEY,
+    building_id INT NOT NULL,
+    type_id INT NOT NULL,
+    room_number VARCHAR(10) NOT NULL,
+    floor_number INT NOT NULL,
+    status ENUM('available', 'occupied', 'maintenance') DEFAULT 'available',
+    FOREIGN KEY (building_id) REFERENCES buildings(building_id),
+    FOREIGN KEY (type_id) REFERENCES room_types(type_id),
+    UNIQUE (building_id, room_number)
+) COMMENT 'Конкретные номера в зданиях гостиницы';
+
+-- 5. Таблица организаций-партнеров
+CREATE TABLE organizations (
+    org_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    type ENUM('travel_agency', 'corporation', 'event', 'other') NOT NULL,
+    contact_person VARCHAR(100),
+    phone VARCHAR(20),
+    email VARCHAR(100),
+    contract_number VARCHAR(50),
+    contract_date DATE,
+    discount_percent DECIMAL(5,2) DEFAULT 0
+) COMMENT 'Организации-партнеры с договорами';
+
+-- 6. Таблица гостей
+CREATE TABLE guests (
+    guest_id INT AUTO_INCREMENT PRIMARY KEY,
+    first_name VARCHAR(50) NOT NULL,
+    last_name VARCHAR(50) NOT NULL,
+    passport_number VARCHAR(50) UNIQUE,
+    phone VARCHAR(20),
+    email VARCHAR(100),
+    organization_id INT NULL,
+    FOREIGN KEY (organization_id) REFERENCES organizations(org_id)
+) COMMENT 'Информация о гостях отеля';
+
+-- 7. Таблица бронирований
+CREATE TABLE bookings (
+    booking_id INT AUTO_INCREMENT PRIMARY KEY,
+    guest_id INT NOT NULL,
+    organization_id INT NULL,
+    booking_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    check_in_date DATE NOT NULL,
+    check_out_date DATE NOT NULL,
+    adults_count INT NOT NULL,
+    children_count INT DEFAULT 0,
+    status ENUM('confirmed', 'cancelled', 'completed') DEFAULT 'confirmed',
+    total_amount DECIMAL(10,2) NOT NULL,
+    discount_amount DECIMAL(10,2) DEFAULT 0,
+    FOREIGN KEY (guest_id) REFERENCES guests(guest_id),
+    FOREIGN KEY (organization_id) REFERENCES organizations(org_id)
+) COMMENT 'Бронирования номеров';
+
+-- 8. Таблица зарезервированных номеров
+CREATE TABLE booked_rooms (
+    booking_room_id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT NOT NULL,
+    room_id INT NOT NULL,
+    actual_price DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (booking_id) REFERENCES bookings(booking_id),
+    FOREIGN KEY (room_id) REFERENCES rooms(room_id)
+) COMMENT 'Связь бронирований с конкретными номерами';
+
+-- 9. Таблица заселений
+CREATE TABLE check_ins (
+    check_in_id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT NOT NULL,
+    actual_check_in TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    actual_check_out TIMESTAMP NULL,
+    receptionist_id INT NOT NULL,
+    FOREIGN KEY (booking_id) REFERENCES bookings(booking_id),
+    FOREIGN KEY (receptionist_id) REFERENCES employees(employee_id)
+) COMMENT 'Фактические заселения гостей';
+
+-- 10. Таблица дополнительных услуг
+CREATE TABLE services (
+    service_id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    category ENUM('cleaning', 'laundry', 'food', 'entertainment') NOT NULL,
+    price DECIMAL(10,2) NOT NULL
+) COMMENT 'Дополнительные платные услуги';
+
+-- 11. Таблица заказанных услуг
+CREATE TABLE guest_services (
+    service_id INT AUTO_INCREMENT PRIMARY KEY,
+    check_in_id INT NOT NULL,
+    service_type_id INT NOT NULL,
+    order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    quantity INT DEFAULT 1,
+    total_price DECIMAL(10,2) NOT NULL,
+    is_paid BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (check_in_id) REFERENCES check_ins(check_in_id),
+    FOREIGN KEY (service_type_id) REFERENCES services(service_id)
+) COMMENT 'Услуги, заказанные гостями';
+
+-- 12. Таблица уборки номеров
+CREATE TABLE cleaning_schedule (
+    cleaning_id INT AUTO_INCREMENT PRIMARY KEY,
+    room_id INT NOT NULL,
+    employee_id INT NOT NULL,
+    scheduled_date DATE NOT NULL,
+    actual_date DATE NULL,
+    status ENUM('scheduled', 'completed', 'cancelled') DEFAULT 'scheduled',
+    quality_rating INT NULL,
+    FOREIGN KEY (room_id) REFERENCES rooms(room_id),
+    FOREIGN KEY (employee_id) REFERENCES employees(employee_id)
+) COMMENT 'График уборки номеров';
+
+-- 13. Таблица смен сотрудников
+CREATE TABLE shifts (
+    shift_id INT AUTO_INCREMENT PRIMARY KEY,
+    employee_id INT NOT NULL,
+    building_id INT NOT NULL,
+    shift_date DATE NOT NULL,
+    start_time TIME NOT NULL,
+    end_time TIME NOT NULL,
+    status ENUM('scheduled', 'completed') DEFAULT 'scheduled',
+    FOREIGN KEY (employee_id) REFERENCES employees(employee_id),
+    FOREIGN KEY (building_id) REFERENCES buildings(building_id)
+) COMMENT 'График работы сотрудников';
+
+-- 14. Таблица отзывов и жалоб
+CREATE TABLE feedback (
+    feedback_id INT AUTO_INCREMENT PRIMARY KEY,
+    guest_id INT NOT NULL,
+    booking_id INT NULL,
+    type ENUM('complaint', 'compliment', 'suggestion') NOT NULL,
+    category ENUM('service', 'cleaning', 'facilities') NOT NULL,
+    comments TEXT NOT NULL,
+    response TEXT,
+    status ENUM('new', 'in_progress', 'resolved') DEFAULT 'new',
+    FOREIGN KEY (guest_id) REFERENCES guests(guest_id),
+    FOREIGN KEY (booking_id) REFERENCES bookings(booking_id)
+) COMMENT 'Отзывы и жалобы гостей';
+
+-- 15. Таблица платежей
+CREATE TABLE payments (
+    payment_id INT AUTO_INCREMENT PRIMARY KEY,
+    booking_id INT NULL,
+    guest_id INT NOT NULL,
+    amount DECIMAL(10,2) NOT NULL,
+    payment_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    payment_method ENUM('cash', 'card', 'transfer') NOT NULL,
+    purpose ENUM('booking', 'service', 'other') NOT NULL,
+    FOREIGN KEY (booking_id) REFERENCES bookings(booking_id),
+    FOREIGN KEY (guest_id) REFERENCES guests(guest_id)
+) COMMENT 'Финансовые операции';
+
+-- 16. Таблица системных логов
+CREATE TABLE system_logs (
+    log_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NULL,
+    action_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    action_type VARCHAR(50) NOT NULL,
+    description TEXT,
+    FOREIGN KEY (user_id) REFERENCES employees(employee_id)
+) COMMENT 'Логи действий в системе';
+```
+
+## Основные связи между таблицами
+
+1. **Сотрудники (employees)**:
+   - Связаны со сменами (shifts) через employee_id
+   - Связаны с заселениями (check_ins) как receptionist_id
+
+2. **Здания (buildings)**:
+   - Связаны с номерами (rooms) через building_id
+   - Связаны со сменами (shifts) через building_id
+
+3. **Номера (rooms)**:
+   - Связаны с категориями (room_types) через type_id
+   - Связаны с бронированиями (booked_rooms) через room_id
+   - Связаны с уборкой (cleaning_schedule) через room_id
+
+4. **Гости (guests)**:
+   - Связаны с организациями (organizations) через organization_id
+   - Связаны с бронированиями (bookings) через guest_id
+   - Связаны с отзывами (feedback) через guest_id
+
+5. **Бронирования (bookings)**:
+   - Связаны с заселениями (check_ins) через booking_id
+   - Связаны с платежами (payments) через booking_id
+
+## Примеры SQL-запросов
+
+### 1. Поиск свободных номеров на даты
+
+```sql
+SELECT r.room_id, b.name AS building, r.room_number, rt.name AS room_type, rt.base_price
+FROM rooms r
+JOIN buildings b ON r.building_id = b.building_id
+JOIN room_types rt ON r.type_id = rt.type_id
+WHERE r.status = 'available'
+AND r.room_id NOT IN (
+    SELECT br.room_id 
+    FROM booked_rooms br
+    JOIN bookings bk ON br.booking_id = bk.booking_id
+    WHERE bk.check_out_date > '2023-12-15' 
+    AND bk.check_in_date < '2023-12-20'
+    AND bk.status = 'confirmed'
+)
+ORDER BY rt.base_price;
+```
+
+### 2. Регистрация нового гостя
+
+```sql
+INSERT INTO guests (first_name, last_name, passport_number, phone, email)
+VALUES ('Иван', 'Иванов', '1234567890', '+79161234567', 'ivanov@example.com');
+```
+
+### 3. Создание бронирования
+
+```sql
+-- Создаем бронирование
+INSERT INTO bookings (guest_id, check_in_date, check_out_date, adults_count, total_amount)
+VALUES (1, '2023-12-15', '2023-12-20', 2, 25000.00);
+
+-- Добавляем номера в бронирование
+INSERT INTO booked_rooms (booking_id, room_id, actual_price)
+VALUES (LAST_INSERT_ID(), 101, 5000.00);
+```
+
+### 4. Заселение гостя
+
+```sql
+-- Регистрируем заселение
+INSERT INTO check_ins (booking_id, receptionist_id)
+VALUES (1, 5);
+
+-- Обновляем статус номера
+UPDATE rooms SET status = 'occupied' WHERE room_id = 101;
+```
+
+### 5. Добавление заказанной услуги
+
+```sql
+INSERT INTO guest_services (check_in_id, service_type_id, total_price)
+VALUES (1, 3, 1500.00);
+```
+
+### 6. Планирование уборки номера
+
+```sql
+INSERT INTO cleaning_schedule (room_id, employee_id, scheduled_date)
+VALUES (101, 8, '2023-12-16');
+```
+
+### 7. Отчет по загрузке номеров
+
+```sql
+SELECT 
+    b.name AS building,
+    COUNT(r.room_id) AS total_rooms,
+    SUM(CASE WHEN r.status = 'occupied' THEN 1 ELSE 0 END) AS occupied_rooms,
+    ROUND(SUM(CASE WHEN r.status = 'occupied' THEN 1 ELSE 0 END) / COUNT(r.room_id) * 100, 2) AS occupancy_rate
+FROM rooms r
+JOIN buildings b ON r.building_id = b.building_id
+GROUP BY b.name
+ORDER BY occupancy_rate DESC;
+```
+
+### 8. Отчет по бронированиям организации
+
+```sql
+SELECT 
+    o.name AS organization,
+    COUNT(b.booking_id) AS bookings_count,
+    SUM(b.total_amount) AS total_amount,
+    AVG(b.discount_amount) AS avg_discount
+FROM bookings b
+JOIN organizations o ON b.organization_id = o.org_id
+WHERE b.booking_date BETWEEN '2023-01-01' AND '2023-12-31'
+GROUP BY o.name
+ORDER BY total_amount DESC;
+```
+
+### 9. Поиск текущих гостей
+
+```sql
+SELECT 
+    g.first_name, g.last_name, 
+    r.room_number, b.name AS building,
+    ci.actual_check_in,
+    DATEDIFF(NOW(), ci.actual_check_in) AS days_stayed
+FROM check_ins ci
+JOIN bookings bk ON ci.booking_id = bk.booking_id
+JOIN guests g ON bk.guest_id = g.guest_id
+JOIN booked_rooms br ON bk.booking_id = br.booking_id
+JOIN rooms r ON br.room_id = r.room_id
+JOIN buildings b ON r.building_id = b.building_id
+WHERE ci.actual_check_out IS NULL;
+```
+
+### 10. Финансовый отчет за период
+
+```sql
+SELECT 
+    DATE(payment_date) AS payment_day,
+    payment_method,
+    SUM(amount) AS total_amount,
+    COUNT(*) AS transactions_count
+FROM payments
+WHERE payment_date BETWEEN '2023-12-01' AND '2023-12-31'
+GROUP BY DATE(payment_date), payment_method
+ORDER BY payment_day;
+```
+
+Эта база данных полностью соответствует требованиям задания и позволяет автоматизировать все аспекты управления гостиничным комплексом.
