@@ -1,0 +1,45 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using MySql.Data.MySqlClient;
+	
+namespace WindowsFormsApp9
+{
+    public partial class Form8 : Form
+    {
+        private string connectionString = "server=localhost;user=root;database=dd_p;port=3306;password=Daria.18451305;";
+        public Form1()
+        {
+            InitializeComponent();
+        }
+        private void LoadData(string dd_p)
+        {
+            // SQL-запрос для выборки данных
+            string query =  "SELECT * FROM dd_p";
+            
+            // Создаем подключение
+            using (MySqlConnection connection = new MySqlConnection(connectionString))
+            {
+                try
+                {
+                    // Открываем соединение
+                    connection.Open();
+                    // Создаем адаптер данных
+                    MySqlDataAdapter dataAdapter = new MySqlDataAdapter(query, connection);
+                    // Создаем DataTable для хранения данных
+                    DataTable dataTable = new DataTable();
+                    // Заполняем DataTable данными
+                    dataAdapter.Fill(dataTable);
+                    // Привязываем DataTable к DataGridView
+                    dataGridView1.DataSource = dataTable;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Ошибка: " + ex.Message, "Ошибка", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
