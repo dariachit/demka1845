@@ -1,0 +1,463 @@
+# Интерфейс системы ГИБДД (WinForms)
+
+## Главная форма авторизации (LoginForm)
+
+```csharp
+public class LoginForm : Form
+{
+    private TextBox txtLogin;
+    private TextBox txtPassword;
+    private Button btnLogin;
+    private Label lblError;
+    
+    public LoginForm()
+    {
+        // Настройка формы
+        this.Text = "Авторизация в системе ГИБДД";
+        this.Size = new Size(350, 250);
+        this.FormBorderStyle = FormBorderStyle.FixedDialog;
+        
+        // Создание элементов управления
+        txtLogin = new TextBox() { Location = new Point(120, 50), Width = 150 };
+        txtPassword = new TextBox() { Location = new Point(120, 90), Width = 150, PasswordChar = '*' };
+        btnLogin = new Button() { Text = "Войти", Location = new Point(120, 130), Width = 150 };
+        lblError = new Label() { Location = new Point(20, 170), Width = 300, ForeColor = Color.Red };
+        
+        // Добавление элементов на форму
+        this.Controls.Add(new Label() { Text = "Логин:", Location = new Point(20, 50) });
+        this.Controls.Add(txtLogin);
+        this.Controls.Add(new Label() { Text = "Пароль:", Location = new Point(20, 90) });
+        this.Controls.Add(txtPassword);
+        this.Controls.Add(btnLogin);
+        this.Controls.Add(lblError);
+        
+        // Обработчик события
+        btnLogin.Click += BtnLogin_Click;
+    }
+    
+    private void BtnLogin_Click(object sender, EventArgs e)
+    {
+        // Проверка учетных данных и открытие соответствующей формы
+        if (AuthenticateUser(txtLogin.Text, txtPassword.Text))
+        {
+            var role = GetUserRole(txtLogin.Text);
+            Form mainForm = role switch
+            {
+                "Admin" => new AdminMainForm(),
+                "RegistrationOfficer" => new RegistrationOfficerForm(),
+                "TheftOfficer" => new TheftOfficerForm(),
+                "AccidentOfficer" => new AccidentOfficerForm(),
+                _ => throw new Exception("Неизвестная роль пользователя")
+            };
+            mainForm.Show();
+            this.Hide();
+        }
+        else
+        {
+            lblError.Text = "Неверный логин или пароль";
+        }
+    }
+}
+```
+
+## Форма администратора (AdminMainForm)
+
+```csharp
+public class AdminMainForm : Form
+{
+    private TabControl tabControl;
+    
+    public AdminMainForm()
+    {
+        this.Text = "Панель администратора ГИБДД";
+        this.WindowState = FormWindowState.Maximized;
+        
+        // Создание вкладок
+        tabControl = new TabControl() { Dock = DockStyle.Fill };
+        
+        // Вкладка пользователей
+        var tabUsers = new TabPage("Пользователи");
+        InitializeUsersTab(tabUsers);
+        
+        // Вкладка транспортных средств
+        var tabVehicles = new TabPage("Транспортные средства");
+        InitializeVehiclesTab(tabVehicles);
+        
+        // Вкладка угоны
+        var tabThefts = new TabPage("Угоны");
+        InitializeTheftsTab(tabThefts);
+        
+        // Вкладка ДТП
+        var tabAccidents = new TabPage("ДТП");
+        InitializeAccidentsTab(tabAccidents);
+        
+        // Вкладка штрафы
+        var tabFines = new TabPage("Штрафы");
+        InitializeFinesTab(tabFines);
+        
+        // Вкладка отчеты
+        var tabReports = new TabPage("Отчеты");
+        InitializeReportsTab(tabReports);
+        
+        tabControl.TabPages.AddRange(new[] { tabUsers, tabVehicles, tabThefts, tabAccidents, tabFines, tabReports });
+        this.Controls.Add(tabControl);
+    }
+    
+    private void InitializeUsersTab(TabPage tab)
+    {
+        var dgvUsers = new DataGridView() { Dock = DockStyle.Fill };
+        var btnAddUser = new Button() { Text = "Добавить", Dock = DockStyle.Top };
+        var btnDeleteUser = new Button() { Text = "Удалить", Dock = DockStyle.Top };
+        
+        // Настройка DataGridView
+        dgvUsers.AutoGenerateColumns = false;
+        dgvUsers.Columns.Add("Login", "Логин");
+        dgvUsers.Columns.Add("FullName", "ФИО");
+        dgvUsers.Columns.Add("Role", "Роль");
+        
+        btnAddUser.Click += (s, e) => {
+            var addUserForm = new AddUserForm();
+            if (addUserForm.ShowDialog() == DialogResult.OK)
+            {
+                // Добавление пользователя
+                RefreshUsersGrid(dgvUsers);
+            }
+        };
+        
+        btnDeleteUser.Click += (s, e) => {
+            if (dgvUsers.SelectedRows.Count > 0)
+            {
+                // Удаление пользователя
+                RefreshUsersGrid(dgvUsers);
+            }
+        };
+        
+        tab.Controls.Add(dgvUsers);
+        tab.Controls.Add(btnDeleteUser);
+        tab.Controls.Add(btnAddUser);
+    }
+    
+    // Аналогичные методы для других вкладок...
+}
+```
+
+## Форма инспектора по регистрации ТС (RegistrationOfficerForm)
+
+```csharp
+public class RegistrationOfficerForm : Form
+{
+    private TabControl tabControl;
+    
+    public RegistrationOfficerForm()
+    {
+        this.Text = "Регистрация ТС";
+        this.WindowState = FormWindowState.Maximized;
+        
+        tabControl = new TabControl() { Dock = DockStyle.Fill };
+        
+        // Вкладка транспортных средств
+        var tabVehicles = new TabPage("Транспортные средства");
+        InitializeVehiclesTab(tabVehicles);
+        
+        // Вкладка собственники
+        var tabOwners = new TabPage("Собственники");
+        InitializeOwnersTab(tabOwners);
+        
+        tabControl.TabPages.AddRange(new[] { tabVehicles, tabOwners });
+        this.Controls.Add(tabControl);
+    }
+    
+    private void InitializeVehiclesTab(TabPage tab)
+    {
+        var dgvVehicles = new DataGridView() { Dock = DockStyle.Fill };
+        var btnAddVehicle = new Button() { Text = "Добавить ТС", Dock = DockStyle.Top };
+        var btnEditVehicle = new Button() { Text = "Редактировать", Dock = DockStyle.Top };
+        var searchPanel = new Panel() { Dock = DockStyle.Top, Height = 40 };
+        var txtSearch = new TextBox() { Dock = DockStyle.Left, Width = 200 };
+        var btnSearch = new Button() { Text = "Поиск", Dock = DockStyle.Left };
+        
+        // Настройка DataGridView
+        dgvVehicles.AutoGenerateColumns = false;
+        dgvVehicles.Columns.Add("VIN", "VIN");
+        dgvVehicles.Columns.Add("RegistrationNumber", "Гос. номер");
+        dgvVehicles.Columns.Add("Make", "Марка");
+        dgvVehicles.Columns.Add("Model", "Модель");
+        dgvVehicles.Columns.Add("OwnerName", "Собственник");
+        
+        btnAddVehicle.Click += (s, e) => {
+            var addVehicleForm = new AddVehicleForm();
+            if (addVehicleForm.ShowDialog() == DialogResult.OK)
+            {
+                // Обновление списка ТС
+                RefreshVehiclesGrid(dgvVehicles);
+            }
+        };
+        
+        btnSearch.Click += (s, e) => {
+            // Поиск по VIN или гос. номеру
+            FilterVehiclesGrid(dgvVehicles, txtSearch.Text);
+        };
+        
+        searchPanel.Controls.Add(btnSearch);
+        searchPanel.Controls.Add(txtSearch);
+        
+        tab.Controls.Add(dgvVehicles);
+        tab.Controls.Add(btnEditVehicle);
+        tab.Controls.Add(btnAddVehicle);
+        tab.Controls.Add(searchPanel);
+    }
+    
+    // Метод для вкладки собственников...
+}
+```
+
+## Форма инспектора по угонам ТС (TheftOfficerForm)
+
+```csharp
+public class TheftOfficerForm : Form
+{
+    private TabControl tabControl;
+    
+    public TheftOfficerForm()
+    {
+        this.Text = "Учет угона ТС";
+        this.WindowState = FormWindowState.Maximized;
+        
+        tabControl = new TabControl() { Dock = DockStyle.Fill };
+        
+        // Вкладка угоны
+        var tabThefts = new TabPage("Угоны");
+        InitializeTheftsTab(tabThefts);
+        
+        // Вкладка транспортные средства
+        var tabVehicles = new TabPage("Транспортные средства");
+        InitializeVehiclesTab(tabVehicles);
+        
+        tabControl.TabPages.AddRange(new[] { tabThefts, tabVehicles });
+        this.Controls.Add(tabControl);
+    }
+    
+    private void InitializeTheftsTab(TabPage tab)
+    {
+        var dgvThefts = new DataGridView() { Dock = DockStyle.Fill };
+        var btnAddTheft = new Button() { Text = "Добавить угон", Dock = DockStyle.Top };
+        var btnSolveTheft = new Button() { Text = "Отметить как найденное", Dock = DockStyle.Top };
+        var searchPanel = new Panel() { Dock = DockStyle.Top, Height = 40 };
+        var txtSearch = new TextBox() { Dock = DockStyle.Left, Width = 200 };
+        var btnSearch = new Button() { Text = "Поиск", Dock = DockStyle.Left };
+        
+        // Настройка DataGridView
+        dgvThefts.AutoGenerateColumns = false;
+        dgvThefts.Columns.Add("VIN", "VIN");
+        dgvThefts.Columns.Add("RegistrationNumber", "Гос. номер");
+        dgvThefts.Columns.Add("MakeModel", "Марка/Модель");
+        dgvThefts.Columns.Add("TheftDate", "Дата угона");
+        dgvThefts.Columns.Add("OwnerName", "Собственник");
+        
+        btnAddTheft.Click += (s, e) => {
+            var addTheftForm = new AddTheftForm();
+            if (addTheftForm.ShowDialog() == DialogResult.OK)
+            {
+                // Обновление списка угона
+                RefreshTheftsGrid(dgvThefts);
+            }
+        };
+        
+        btnSolveTheft.Click += (s, e) => {
+            if (dgvThefts.SelectedRows.Count > 0)
+            {
+                // Отметить как найденное
+                RefreshTheftsGrid(dgvThefts);
+            }
+        };
+        
+        tab.Controls.Add(dgvThefts);
+        tab.Controls.Add(btnSolveTheft);
+        tab.Controls.Add(btnAddTheft);
+        tab.Controls.Add(searchPanel);
+    }
+}
+```
+
+## Форма инспектора по ДТП (AccidentOfficerForm)
+
+```csharp
+public class AccidentOfficerForm : Form
+{
+    private TabControl tabControl;
+    
+    public AccidentOfficerForm()
+    {
+        this.Text = "Оформление ДТП";
+        this.WindowState = FormWindowState.Maximized;
+        
+        tabControl = new TabControl() { Dock = DockStyle.Fill };
+        
+        // Вкладка ДТП
+        var tabAccidents = new TabPage("ДТП");
+        InitializeAccidentsTab(tabAccidents);
+        
+        // Вкладка участники ДТП
+        var tabParticipants = new TabPage("Участники");
+        InitializeParticipantsTab(tabParticipants);
+        
+        // Вкладка штрафы
+        var tabFines = new TabPage("Штрафы");
+        InitializeFinesTab(tabFines);
+        
+        // Вкладка транспортные средства
+        var tabVehicles = new TabPage("Транспортные средства");
+        InitializeVehiclesTab(tabVehicles);
+        
+        tabControl.TabPages.AddRange(new[] { tabAccidents, tabParticipants, tabFines, tabVehicles });
+        this.Controls.Add(tabControl);
+    }
+    
+    private void InitializeAccidentsTab(TabPage tab)
+    {
+        var dgvAccidents = new DataGridView() { Dock = DockStyle.Fill };
+        var btnAddAccident = new Button() { Text = "Добавить ДТП", Dock = DockStyle.Top };
+        var btnViewDetails = new Button() { Text = "Просмотр деталей", Dock = DockStyle.Top };
+        
+        // Настройка DataGridView
+        dgvAccidents.AutoGenerateColumns = false;
+        dgvAccidents.Columns.Add("AccidentDate", "Дата ДТП");
+        dgvAccidents.Columns.Add("Location", "Место происшествия");
+        dgvAccidents.Columns.Add("ParticipantsCount", "Кол-во участников");
+        dgvAccidents.Columns.Add("OfficerName", "Инспектор");
+        
+        btnAddAccident.Click += (s, e) => {
+            var addAccidentForm = new AddAccidentForm();
+            if (addAccidentForm.ShowDialog() == DialogResult.OK)
+            {
+                // Обновление списка ДТП
+                RefreshAccidentsGrid(dgvAccidents);
+            }
+        };
+        
+        tab.Controls.Add(dgvAccidents);
+        tab.Controls.Add(btnViewDetails);
+        tab.Controls.Add(btnAddAccident);
+    }
+    
+    private void InitializeFinesTab(TabPage tab)
+    {
+        var dgvFines = new DataGridView() { Dock = DockStyle.Fill };
+        var btnAddFine = new Button() { Text = "Выписать штраф", Dock = DockStyle.Top };
+        
+        // Настройка DataGridView
+        dgvFines.AutoGenerateColumns = false;
+        dgvFines.Columns.Add("ViolationType", "Нарушение");
+        dgvFines.Columns.Add("Amount", "Сумма");
+        dgvFines.Columns.Add("VehicleInfo", "Транспортное средство");
+        dgvFines.Columns.Add("PersonName", "Нарушитель");
+        dgvFines.Columns.Add("IssueDate", "Дата выписки");
+        
+        btnAddFine.Click += (s, e) => {
+            var addFineForm = new AddFineForm();
+            if (addFineForm.ShowDialog() == DialogResult.OK)
+            {
+                // Обновление списка штрафов
+                RefreshFinesGrid(dgvFines);
+            }
+        };
+        
+        tab.Controls.Add(dgvFines);
+        tab.Controls.Add(btnAddFine);
+    }
+}
+```
+
+## Вспомогательные формы
+
+### Форма добавления ТС (AddVehicleForm)
+
+```csharp
+public class AddVehicleForm : Form
+{
+    public AddVehicleForm()
+    {
+        this.Text = "Добавление транспортного средства";
+        this.Size = new Size(500, 500);
+        this.FormBorderStyle = FormBorderStyle.FixedDialog;
+        
+        // Создание элементов формы
+        var txtVIN = new TextBox() { Location = new Point(150, 20), Width = 200 };
+        var txtRegNumber = new TextBox() { Location = new Point(150, 60), Width = 200 };
+        var cmbType = new ComboBox() { Location = new Point(150, 100), Width = 200 };
+        var txtMake = new TextBox() { Location = new Point(150, 140), Width = 200 };
+        // ... другие поля
+        
+        var btnSave = new Button() { Text = "Сохранить", Location = new Point(150, 400), DialogResult = DialogResult.OK };
+        var btnCancel = new Button() { Text = "Отмена", Location = new Point(250, 400), DialogResult = DialogResult.Cancel };
+        
+        // Добавление элементов на форму
+        this.Controls.Add(new Label() { Text = "VIN:", Location = new Point(20, 20) });
+        this.Controls.Add(txtVIN);
+        this.Controls.Add(new Label() { Text = "Гос. номер:", Location = new Point(20, 60) });
+        this.Controls.Add(txtRegNumber);
+        // ... другие элементы
+        
+        this.Controls.Add(btnSave);
+        this.Controls.Add(btnCancel);
+        
+        this.AcceptButton = btnSave;
+        this.CancelButton = btnCancel;
+    }
+}
+```
+
+### Форма добавления ДТП (AddAccidentForm)
+
+```csharp
+public class AddAccidentForm : Form
+{
+    public AddAccidentForm()
+    {
+        this.Text = "Оформление ДТП";
+        this.Size = new Size(600, 500);
+        this.FormBorderStyle = FormBorderStyle.FixedDialog;
+        
+        // Основные поля ДТП
+        var dtpDate = new DateTimePicker() { Location = new Point(150, 20), Width = 200 };
+        var txtLocation = new TextBox() { Location = new Point(150, 60), Width = 400 };
+        var nudParticipants = new NumericUpDown() { Location = new Point(150, 100), Width = 100 };
+        
+        // Кнопки для добавления участников
+        var btnAddParticipant = new Button() { Text = "Добавить участника", Location = new Point(20, 140) };
+        var dgvParticipants = new DataGridView() { Location = new Point(20, 180), Size = new Size(550, 200) };
+        
+        var btnSave = new Button() { Text = "Сохранить", Location = new Point(150, 400), DialogResult = DialogResult.OK };
+        var btnCancel = new Button() { Text = "Отмена", Location = new Point(250, 400), DialogResult = DialogResult.Cancel };
+        
+        // Настройка DataGridView участников
+        dgvParticipants.AutoGenerateColumns = false;
+        dgvParticipants.Columns.Add("VehicleInfo", "Транспортное средство");
+        dgvParticipants.Columns.Add("PersonName", "ФИО");
+        dgvParticipants.Columns.Add("IsViolator", "Нарушитель");
+        
+        btnAddParticipant.Click += (s, e) => {
+            var addParticipantForm = new AddParticipantForm();
+            if (addParticipantForm.ShowDialog() == DialogResult.OK)
+            {
+                // Добавление участника
+            }
+        };
+        
+        // Добавление элементов на форму
+        this.Controls.Add(new Label() { Text = "Дата и время:", Location = new Point(20, 20) });
+        this.Controls.Add(dtpDate);
+        this.Controls.Add(new Label() { Text = "Место:", Location = new Point(20, 60) });
+        this.Controls.Add(txtLocation);
+        this.Controls.Add(new Label() { Text = "Кол-во участников:", Location = new Point(20, 100) });
+        this.Controls.Add(nudParticipants);
+        
+        this.Controls.Add(btnAddParticipant);
+        this.Controls.Add(dgvParticipants);
+        
+        this.Controls.Add(btnSave);
+        this.Controls.Add(btnCancel);
+    }
+}
+```
+
